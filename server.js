@@ -3,12 +3,12 @@ import mongoose from 'mongoose'
 import cors from 'cors'
 
 
-// mongodb+srv://thiago20coro_db_user:7654321a@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0
+// mongodb+srv://:@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0
 const app = express()
 app.use(express.json()) // avisando que vou usar JSON (JSON é o padrao da internet formato de dados) 
 app.use(cors()) //liberando o cors
 
-mongoose.connect('mongodb+srv://thiago20coro_db_user:7654321a@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0')
+mongoose.connect('mongodb+srv://@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0')
 .then(() => console.log("conectado ao banco de dados Mongo") )
 .catch((error) => console.log(error))
 
