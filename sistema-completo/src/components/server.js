@@ -222,8 +222,6 @@ const Colaborador = mongoose.model('Colaborador', colaboradorSchema)
 const FolhaPagamento = mongoose.model('FolhaPagamento', folhaPagamentoSchema)
 const RegistroPonto = mongoose.model('RegistroPonto', registroPontoSchema)
 
-const tokens = new Map()
-
 function criarHashSenha(senha) {
     return new Promise((resolve, reject) => {
         const salt = crypto.randomBytes(16).toString('hex')
@@ -246,20 +244,44 @@ function verificarSenha(senha, hashArmazenado) {
 }
 
 function criarToken(usuarioId) {
-    const token = crypto
+    const payload = Buffer.from(JSON.stringify({
+        usuarioId,
+        expiraEm: Date.now() + 7 * 24 * 60 * 60 * 1000
+    })).toString('base64url')
+    const assinatura = crypto
         .createHmac('sha256', tokenSecret)
-        .update(`${usuarioId}:${Date.now()}:${crypto.randomBytes(16).toString('hex')}`)
-        .digest('hex')
-    tokens.set(token, usuarioId)
-    return token
+        .update(payload)
+        .digest('base64url')
+    return `${payload}.${assinatura}`
 }
 
 async function exigirAutenticacao(request, response, next) {
     const token = request.headers.authorization?.replace('Bearer ', '')
-    const usuarioId = token ? tokens.get(token) : null
-    if (!usuarioId) return response.status(401).json({ mensagem: 'Faça login para continuar.' })
+    const [payloadCodificado, assinaturaRecebida] = token?.split('.') || []
+    if (!payloadCodificado || !assinaturaRecebida) {
+        return response.status(401).json({ mensagem: 'Faça login para continuar.' })
+    }
 
-    request.usuarioId = usuarioId
+    const assinaturaEsperada = crypto
+        .createHmac('sha256', tokenSecret)
+        .update(payloadCodificado)
+        .digest('base64url')
+    const assinaturaValida = assinaturaRecebida.length === assinaturaEsperada.length
+        && crypto.timingSafeEqual(Buffer.from(assinaturaRecebida), Buffer.from(assinaturaEsperada))
+
+    let dadosToken
+    try {
+        dadosToken = JSON.parse(Buffer.from(payloadCodificado, 'base64url').toString())
+    } catch {
+        dadosToken = null
+    }
+
+    const tokenValido = assinaturaValida
+        && dadosToken?.usuarioId
+        && Number(dadosToken.expiraEm) > Date.now()
+    if (!tokenValido) return response.status(401).json({ mensagem: 'Faça login para continuar.' })
+
+    request.usuarioId = dadosToken.usuarioId
     next()
 }
 
@@ -316,8 +338,6 @@ app.post('/auth/login', async (request, response) => {
 })
 
 app.post('/auth/logout', exigirAutenticacao, (request, response) => {
-    const token = request.headers.authorization.replace('Bearer ', '')
-    tokens.delete(token)
     response.json({ mensagem: 'Logout realizado com sucesso.' })
 })
 
