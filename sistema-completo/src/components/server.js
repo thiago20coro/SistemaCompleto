@@ -238,7 +238,9 @@ function verificarSenha(senha, hashArmazenado) {
         if (!salt || !hash) return resolve(false)
         crypto.scrypt(senha, salt, 64, (erro, derivada) => {
             if (erro) return reject(erro)
-            resolve(crypto.timingSafeEqual(Buffer.from(hash, 'hex'), derivada))
+            const hashRecebido = Buffer.from(hash, 'hex')
+            if (hashRecebido.length !== derivada.length) return resolve(false)
+            resolve(crypto.timingSafeEqual(hashRecebido, derivada))
         })
     })
 }
