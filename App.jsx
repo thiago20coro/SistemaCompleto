@@ -1,12 +1,12 @@
 import './App.css'
 import { useState } from 'react'
-import CadastroUsuario from './components/CadastroUsuario.jsx'
-import FormProduto from './components/FormProduto.jsx'
-import ListarUsuarios from './components/ListarUsuarios.jsx'
-import ListarProdutos from './components/ListarProdutos.jsx'
-import CadastroFornecedor from './components/CadastroFornecedores.jsx'
-import ListarFornecedores from './components/ListarFornecedor.jsx'
-import minhaFoto from './assets/Amor e Eu 1.jpg'
+import CadastroUsuario from './CadastroUsuario.jsx'
+import FormProduto from './FormProduto.jsx'
+import ListarUsuarios from './ListarUsuarios.jsx'
+import ListarProdutos from './ListarProdutos.jsx'
+import CadastroFornecedor from './CadastroFornecedores.jsx'
+import ListarFornecedores from './ListarFornecedor.jsx'
+import minhaFoto from './Amor e Eu 1.jpg'
 
 function App() {
   const [telaAtiva, setTelaAtiva] = useState("home")
