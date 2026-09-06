@@ -2,6 +2,7 @@ import express from 'express'
 import mongoose from 'mongoose'
 import cors from 'cors'
 import crypto from 'node:crypto'
+import { supabase } from '../config/supabase.js'
 const app = express()
 app.use(express.json()) // avisando que vou usar JSON (JSON é o padrao da internet formato de dados) 
 
@@ -22,8 +23,10 @@ const isLocalOrigin = origin => {
     }
 }
 
-if (!mongoUri) throw new Error('MONGODB_URI precisa ser configurada.')
+if (!mongoUri) throw new Error('MONGODB_URI precisa ser configurada até a migração dos modelos para o Supabase.')
 if (!tokenSecret) throw new Error('AUTH_SECRET precisa ser configurada em produção.')
+
+if (supabase) console.log('Cliente Supabase configurado.')
 
 let conexaoMongo = null
 
@@ -837,7 +840,7 @@ async function iniciarServidor() {
     }
 }
 
-if (!process.env.VERCEL) iniciarServidor()
+if (!process.env.VERCEL && !process.env.NETLIFY) iniciarServidor()
 
 export default app
 
