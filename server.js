@@ -1,16 +1,57 @@
 import express from 'express'
 import mongoose from 'mongoose'
 import cors from 'cors'
-
-
-// mongodb+srv://:@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0
+import crypto from 'node:crypto'
 const app = express()
 app.use(express.json()) // avisando que vou usar JSON (JSON é o padrao da internet formato de dados) 
-app.use(cors()) //liberando o cors
 
-mongoose.connect('mongodb+srv://@cluster0.9meaxhq.mongodb.net/Usuarios?appName=Cluster0')
-.then(() => console.log("conectado ao banco de dados Mongo") )
-.catch((error) => console.log(error))
+const isProduction = process.env.NODE_ENV === 'production'
+const mongoUri = process.env.MONGODB_URI
+const tokenSecret = process.env.AUTH_SECRET || (isProduction ? '' : 'chave-local-de-desenvolvimento')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean)
+const isLocalOrigin = origin => {
+    if (isProduction || !origin) return false
+    try {
+        const url = new URL(origin)
+        return ['localhost', '127.0.0.1'].includes(url.hostname)
+    } catch {
+        return false
+    }
+}
+
+if (!mongoUri) throw new Error('MONGODB_URI precisa ser configurada.')
+if (!tokenSecret) throw new Error('AUTH_SECRET precisa ser configurada em produção.')
+
+let conexaoMongo = null
+
+async function conectarMongo() {
+    if (mongoose.connection.readyState === 1) return
+    if (!conexaoMongo) conexaoMongo = mongoose.connect(mongoUri)
+    await conexaoMongo
+}
+
+app.use(async (request, response, next) => {
+    try {
+        await conectarMongo()
+        next()
+    } catch (erro) {
+        conexaoMongo = null
+        console.error('Não foi possível conectar ao MongoDB:', erro.message)
+        response.status(503).json({ mensagem: 'Banco de dados indisponível.' })
+    }
+})
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || isLocalOrigin(origin)) {
+            return callback(null, true)
+        }
+        return callback(new Error('Origem não autorizada pelo CORS.'))
+    }
+}))
 
 //schema
 
@@ -21,7 +62,10 @@ const usuarioSchema = new mongoose.Schema({
     endereco: {type: String, required: true},
     cep: {type: String, required: true},
     celular: {type: String, required: true},
-    cpf: {type: String, required: true, unique: true}
+    cpf: {type: String, required: true, unique: true},
+    passwordHash: { type: String, required: true, select: false },
+    perfil: { type: String, enum: ['admin', 'usuario'], default: 'usuario' },
+    acesso: { type: String, enum: ['pendente', 'aprovado', 'bloqueado'], default: 'pendente' }
     
 }, {timestamps: true} )
 
@@ -32,7 +76,12 @@ const produtoSchema = new mongoose.Schema({
     cores: {type: String, required: true},
     detalhes: {type: String, required: true},
     preco: {type: Number, required: true},
-    quantidadeEstoque: {type: Number, required: true}
+    quantidadeEstoque: {type: Number, required: true, min: 0},
+    ncm: { type: String, default: '' },
+    cfop: { type: String, default: '' },
+    unidadeMedida: { type: String, default: 'UN' },
+    estoqueMinimo: { type: Number, default: 0, min: 0 },
+    validade: { type: Date, default: null }
 
 
 }, {timestamps: true} )
@@ -51,11 +100,242 @@ const fornecedorSchema = new mongoose.Schema({
 
 }, {timestamps: true} )
 
+
+
+const emailAdminSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true },
+    senhaHash: { type: String, required: true, select: false }
+}, {timestamps: true} )
+
+const depositoSchema = new mongoose.Schema({
+    nome: { type: String, required: true, trim: true },
+    codigo: { type: String, required: true, unique: true, trim: true },
+    endereco: { type: String, default: '' },
+    ativo: { type: Boolean, default: true }
+}, { timestamps: true })
+
+const movimentoEstoqueSchema = new mongoose.Schema({
+    produto: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto', required: true },
+    deposito: { type: mongoose.Schema.Types.ObjectId, ref: 'Deposito', required: true },
+    tipo: { type: String, enum: ['entrada', 'saida', 'ajuste'], required: true },
+    quantidade: { type: Number, required: true, min: 0.01 },
+    motivo: { type: String, default: '' },
+    documento: { type: String, default: '' },
+    data: { type: Date, default: Date.now }
+}, { timestamps: true })
+
+const pedidoCompraSchema = new mongoose.Schema({
+    fornecedor: { type: mongoose.Schema.Types.ObjectId, ref: 'Fornecedor', required: true },
+    itens: [{ produto: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' }, quantidade: Number, valorUnitario: Number }],
+    status: { type: String, enum: ['solicitado', 'aprovado', 'recebido', 'cancelado'], default: 'solicitado' },
+    observacoes: { type: String, default: '' },
+    total: { type: Number, default: 0, min: 0 },
+    dataPrevisao: { type: Date, default: null }
+}, { timestamps: true })
+
+const pedidoVendaSchema = new mongoose.Schema({
+    cliente: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', default: null },
+    nomeCliente: { type: String, required: true, trim: true },
+    itens: [{ produto: { type: mongoose.Schema.Types.ObjectId, ref: 'Produto' }, quantidade: Number, valorUnitario: Number }],
+    status: { type: String, enum: ['orcamento', 'aberto', 'faturado', 'cancelado'], default: 'aberto' },
+    total: { type: Number, default: 0, min: 0 },
+    comissao: { type: Number, default: 0, min: 0 },
+    dataVenda: { type: Date, default: Date.now }
+}, { timestamps: true })
+
+const contaSchema = new mongoose.Schema({
+    descricao: { type: String, required: true, trim: true },
+    pessoa: { type: String, default: '' },
+    valor: { type: Number, required: true, min: 0 },
+    vencimento: { type: Date, required: true },
+    pagamento: { type: Date, default: null },
+    status: { type: String, enum: ['pendente', 'paga', 'cancelada'], default: 'pendente' },
+    categoria: { type: String, default: 'geral' },
+    observacoes: { type: String, default: '' }
+}, { timestamps: true })
+
+const configuracaoFiscalSchema = new mongoose.Schema({
+    empresa: { type: String, required: true },
+    cnpj: { type: String, required: true },
+    regimeTributario: { type: String, default: '' },
+    aliquotas: { icms: { type: Number, default: 0 }, pis: { type: Number, default: 0 }, cofins: { type: Number, default: 0 } },
+    serieNfe: { type: String, default: '1' },
+    ambiente: { type: String, enum: ['homologacao', 'producao'], default: 'homologacao' }
+}, { timestamps: true })
+
+const documentoFiscalSchema = new mongoose.Schema({
+    tipo: { type: String, enum: ['nfe', 'nfce', 'boleto'], required: true },
+    numero: { type: String, required: true },
+    chaveAcesso: { type: String, default: '' },
+    destinatario: { type: String, required: true },
+    valor: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['rascunho', 'emitida', 'cancelada'], default: 'rascunho' },
+    dataEmissao: { type: Date, default: Date.now }
+}, { timestamps: true })
+
+const colaboradorSchema = new mongoose.Schema({
+    nome: { type: String, required: true, trim: true },
+    cpf: { type: String, required: true, unique: true },
+    cargo: { type: String, required: true },
+    departamento: { type: String, default: '' },
+    salario: { type: Number, required: true, min: 0 },
+    admissao: { type: Date, required: true },
+    beneficios: [{ type: String }],
+    ativo: { type: Boolean, default: true }
+}, { timestamps: true })
+
+const folhaPagamentoSchema = new mongoose.Schema({
+    colaborador: { type: mongoose.Schema.Types.ObjectId, ref: 'Colaborador', required: true },
+    competencia: { type: String, required: true },
+    salarioBruto: { type: Number, required: true, min: 0 },
+    descontos: { type: Number, default: 0, min: 0 },
+    liquido: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ['aberta', 'processada', 'paga'], default: 'aberta' }
+}, { timestamps: true })
+
+const registroPontoSchema = new mongoose.Schema({
+    colaborador: { type: mongoose.Schema.Types.ObjectId, ref: 'Colaborador', required: true },
+    data: { type: Date, required: true },
+    entrada: { type: String, required: true },
+    saida: { type: String, default: '' },
+    observacoes: { type: String, default: '' }
+}, { timestamps: true })
+
 // id no banco de dados e automatico
 
 const Usuario = mongoose.model('Usuario', usuarioSchema)
 const Produto = mongoose.model('Produto', produtoSchema)
 const Fornecedor = mongoose.model('Fornecedor', fornecedorSchema)
+const EmailAdmin = mongoose.model('EmailAdmin', emailAdminSchema)
+const Deposito = mongoose.model('Deposito', depositoSchema)
+const MovimentoEstoque = mongoose.model('MovimentoEstoque', movimentoEstoqueSchema)
+const PedidoCompra = mongoose.model('PedidoCompra', pedidoCompraSchema)
+const PedidoVenda = mongoose.model('PedidoVenda', pedidoVendaSchema)
+const ContaPagar = mongoose.model('ContaPagar', contaSchema)
+const ContaReceber = mongoose.model('ContaReceber', contaSchema)
+const ConfiguracaoFiscal = mongoose.model('ConfiguracaoFiscal', configuracaoFiscalSchema)
+const DocumentoFiscal = mongoose.model('DocumentoFiscal', documentoFiscalSchema)
+const Colaborador = mongoose.model('Colaborador', colaboradorSchema)
+const FolhaPagamento = mongoose.model('FolhaPagamento', folhaPagamentoSchema)
+const RegistroPonto = mongoose.model('RegistroPonto', registroPontoSchema)
+
+const tokens = new Map()
+
+function criarHashSenha(senha) {
+    return new Promise((resolve, reject) => {
+        const salt = crypto.randomBytes(16).toString('hex')
+        crypto.scrypt(senha, salt, 64, (erro, derivada) => {
+            if (erro) return reject(erro)
+            resolve(`${salt}:${derivada.toString('hex')}`)
+        })
+    })
+}
+
+function verificarSenha(senha, hashArmazenado) {
+    return new Promise((resolve, reject) => {
+        const [salt, hash] = hashArmazenado.split(':')
+        if (!salt || !hash) return resolve(false)
+        crypto.scrypt(senha, salt, 64, (erro, derivada) => {
+            if (erro) return reject(erro)
+            resolve(crypto.timingSafeEqual(Buffer.from(hash, 'hex'), derivada))
+        })
+    })
+}
+
+function criarToken(usuarioId) {
+    const token = crypto
+        .createHmac('sha256', tokenSecret)
+        .update(`${usuarioId}:${Date.now()}:${crypto.randomBytes(16).toString('hex')}`)
+        .digest('hex')
+    tokens.set(token, usuarioId)
+    return token
+}
+
+async function exigirAutenticacao(request, response, next) {
+    const token = request.headers.authorization?.replace('Bearer ', '')
+    const usuarioId = token ? tokens.get(token) : null
+    if (!usuarioId) return response.status(401).json({ mensagem: 'Faça login para continuar.' })
+
+    request.usuarioId = usuarioId
+    next()
+}
+
+async function exigirAdministrador(request, response, next) {
+    const usuario = await Usuario.findById(request.usuarioId)
+    const emailAdmin = usuario
+        ? await EmailAdmin.exists({ email: usuario.email })
+        : null
+    if (!usuario || (usuario.perfil !== 'admin' && !emailAdmin)) {
+        return response.status(403).json({ mensagem: 'Apenas administradores podem realizar esta ação.' })
+    }
+    request.usuarioAtual = usuario
+    next()
+}
+
+app.post('/auth/login', async (request, response) => {
+    try {
+        const email = String(request.body.email || '').trim().toLowerCase()
+        const senha = String(request.body.senha || '')
+        if (!email || !senha) return response.status(400).json({ mensagem: 'E-mail e senha são obrigatórios.' })
+
+        const administrador = await EmailAdmin.findOne({ email }).select('+senhaHash')
+        const usuario = await Usuario.findOne({ email }).select('+passwordHash')
+        const senhaAdminValida = administrador
+            ? await verificarSenha(senha, administrador.senhaHash)
+            : false
+        const senhaUsuarioValida = usuario
+            ? await verificarSenha(senha, usuario.passwordHash)
+            : false
+
+        if (!usuario || (!senhaAdminValida && (usuario.acesso !== 'aprovado' || !senhaUsuarioValida))) {
+            if (usuario && usuario.acesso === 'pendente') {
+                return response.status(403).json({ mensagem: 'Seu acesso ainda aguarda aprovação de um administrador.' })
+            }
+            if (usuario && usuario.acesso === 'bloqueado') {
+                return response.status(403).json({ mensagem: 'Seu acesso foi bloqueado por um administrador.' })
+            }
+            return response.status(401).json({ mensagem: 'E-mail ou senha inválidos.' })
+        }
+
+        response.json({
+            token: criarToken(usuario._id.toString()),
+            usuario: {
+                id: usuario._id,
+                nome: usuario.nome,
+                email: usuario.email,
+                perfil: administrador && senhaAdminValida ? 'admin' : usuario.perfil
+            }
+        })
+    } catch (erro) {
+        console.error('Erro ao fazer login:', erro)
+        response.status(500).json({ mensagem: 'Erro interno ao fazer login.' })
+    }
+})
+
+app.post('/auth/logout', exigirAutenticacao, (request, response) => {
+    const token = request.headers.authorization.replace('Bearer ', '')
+    tokens.delete(token)
+    response.json({ mensagem: 'Logout realizado com sucesso.' })
+})
+
+app.get('/auth/me', exigirAutenticacao, async (request, response) => {
+    const usuario = await Usuario.findById(request.usuarioId)
+    if (!usuario) return response.status(401).json({ mensagem: 'Usuário não encontrado.' })
+    const emailAdmin = await EmailAdmin.exists({ email: usuario.email })
+    response.json({ id: usuario._id, nome: usuario.nome, email: usuario.email, perfil: emailAdmin ? 'admin' : usuario.perfil })
+})
+
+app.use((request, response, next) => {
+    if (request.path === '/auth/login') return next()
+    if (request.path === '/produtos' && request.method === 'GET') return next()
+    if (request.path === '/usuarios' && request.method === 'POST') {
+        return Usuario.countDocuments().then(total => {
+            if (total === 0) return next()
+            exigirAutenticacao(request, response, () => exigirAdministrador(request, response, next))
+        }).catch(next)
+    }
+    exigirAutenticacao(request, response, next)
+})
 
 //rota retorna produtos
 app.get('/produtos', async (request, response) => {
@@ -146,13 +426,75 @@ app.get('/usuarios', async (request, response) => {
 // async / await 
 
 app.post('/usuarios', async (request,response)=>{
+    const { senha, passwordHash, ...dadosUsuario } = request.body
+    if (!senha || senha.length < 6) {
+        return response.status(400).json({ mensagem: 'A senha deve ter pelo menos 6 caracteres.' })
+    }
+    const totalUsuarios = await Usuario.countDocuments()
+    const usuarioCriado = await Usuario.create({
+        ...dadosUsuario,
+        email: String(dadosUsuario.email || '').trim().toLowerCase(),
+        passwordHash: await criarHashSenha(senha),
+        perfil: totalUsuarios === 0 ? 'admin' : 'usuario',
+        acesso: totalUsuarios === 0 ? 'aprovado' : 'pendente'
+    })
 
-    const usuarioCriado = await  Usuario.create(request.body)
     // push é um metodo de array que adiciona o item ao array
 
-    response.json(usuarioCriado)
+    response.json({ ...usuarioCriado.toObject(), passwordHash: undefined })
 
 
+})
+
+app.post('/administradores', exigirAdministrador, async (request, response) => {
+    try {
+        const nome = String(request.body.nome || '').trim()
+        const email = String(request.body.email || '').trim().toLowerCase()
+        const senha = String(request.body.senha || '')
+        if (!nome || !email || senha.length < 6) {
+            return response.status(400).json({ mensagem: 'Nome, e-mail e senha com pelo menos 6 caracteres são obrigatórios.' })
+        }
+        if (await Usuario.exists({ email }) || await EmailAdmin.exists({ email })) {
+            return response.status(409).json({ mensagem: 'Já existe um usuário com este e-mail.' })
+        }
+
+        const usuarioCriado = await Usuario.create({
+            nome,
+            email,
+            idade: 0,
+            endereco: 'Não informado',
+            cep: 'Não informado',
+            celular: 'Não informado',
+            cpf: `ADMIN-${crypto.randomUUID()}`,
+            passwordHash: await criarHashSenha(senha),
+            perfil: 'admin',
+            acesso: 'aprovado'
+        })
+        await EmailAdmin.create({ email, senhaHash: await criarHashSenha(senha) })
+        response.status(201).json({
+            mensagem: 'Administrador criado com sucesso.',
+            administrador: { id: usuarioCriado._id, nome, email, perfil: 'admin' }
+        })
+    } catch (erro) {
+        console.error('Erro ao criar administrador:', erro)
+        response.status(500).json({ mensagem: 'Erro interno ao criar administrador.' })
+    }
+})
+
+app.put('/usuarios/:_id/acesso', exigirAdministrador, async (request, response) => {
+    const acessosValidos = ['pendente', 'aprovado', 'bloqueado']
+    const acesso = request.body.acesso
+    if (!acessosValidos.includes(acesso)) {
+        return response.status(400).json({ mensagem: 'Status de acesso inválido.' })
+    }
+
+    const usuarioAtualizado = await Usuario.findByIdAndUpdate(
+        request.params._id,
+        { acesso },
+        { new: true, runValidators: true }
+    )
+    if (!usuarioAtualizado) return response.status(404).json({ mensagem: 'Usuário não encontrado.' })
+    response.json({ mensagem: `Usuário ${acesso}.`, usuarioAtualizado })
 })
 
 // DELETAR USUÁRIO POR ID (Nova rota adicionada)
@@ -249,6 +591,228 @@ app.put('/fornecedores/:_id', async (request, response) => {
         })
 })
 
+async function registrarVenda(request, response) {
+    const itensSolicitados = Array.isArray(request.body.itens) ? request.body.itens : []
+    const nomeCliente = String(request.body.nomeCliente || '').trim()
+    if (!nomeCliente || itensSolicitados.length === 0) {
+        return response.status(400).json({ mensagem: 'Informe o cliente e pelo menos um produto.' })
+    }
+
+    const itens = []
+    const produtosAtualizados = []
+    try {
+        for (const item of itensSolicitados) {
+            const quantidade = Number(item.quantidade)
+            if (!item.produto || !Number.isInteger(quantidade) || quantidade <= 0) {
+                return response.status(400).json({ mensagem: 'Cada item deve ter produto e quantidade inteira positiva.' })
+            }
+
+            const produto = await Produto.findOneAndUpdate(
+                { _id: item.produto, quantidadeEstoque: { $gte: quantidade } },
+                { $inc: { quantidadeEstoque: -quantidade } },
+                { new: true, runValidators: true }
+            )
+            if (!produto) {
+                for (const produtoAnterior of produtosAtualizados) {
+                    await Produto.findByIdAndUpdate(produtoAnterior.id, { $inc: { quantidadeEstoque: produtoAnterior.quantidade } })
+                }
+                return response.status(409).json({ mensagem: `Estoque insuficiente ou produto inválido: ${item.produto}.` })
+            }
+
+            produtosAtualizados.push({ id: produto._id, quantidade })
+            itens.push({ produto: produto._id, quantidade, valorUnitario: produto.preco })
+        }
+
+        const total = itens.reduce((soma, item) => soma + item.quantidade * item.valorUnitario, 0)
+        const venda = await PedidoVenda.create({
+            cliente: request.body.cliente || null,
+            nomeCliente,
+            itens,
+            status: request.body.status || 'faturado',
+            total,
+            comissao: Number(request.body.comissao) || 0,
+            dataVenda: request.body.dataVenda || new Date()
+        })
+        response.status(201).json({ mensagem: 'Venda registrada e estoque atualizado.', venda })
+    } catch (erro) {
+        for (const produtoAnterior of produtosAtualizados) {
+            await Produto.findByIdAndUpdate(produtoAnterior.id, { $inc: { quantidadeEstoque: produtoAnterior.quantidade } })
+        }
+        console.error('Erro ao registrar venda:', erro)
+        response.status(400).json({ mensagem: 'Não foi possível registrar a venda.', detalhes: erro.message })
+    }
+}
+
+function registrarCrud(caminho, Modelo, opcoes = {}) {
+    app.get(caminho, async (request, response) => {
+        try {
+            const consulta = Modelo.find().sort({ createdAt: -1 })
+            if (opcoes.populate) consulta.populate(opcoes.populate)
+            response.json(await consulta)
+        } catch (erro) {
+            console.error(`Erro ao listar ${caminho}:`, erro)
+            response.status(500).json({ mensagem: 'Erro interno ao listar registros.' })
+        }
+    })
+
+    app.post(caminho, async (request, response) => {
+        if (opcoes.post) return opcoes.post(request, response)
+        try {
+            const registro = await Modelo.create(request.body)
+            response.status(201).json(registro)
+        } catch (erro) {
+            console.error(`Erro ao criar ${caminho}:`, erro)
+            response.status(400).json({ mensagem: 'Dados inválidos.', detalhes: erro.message })
+        }
+    })
+
+    app.put(`${caminho}/:_id`, async (request, response) => {
+        try {
+            const registro = await Modelo.findByIdAndUpdate(request.params._id, request.body, { new: true, runValidators: true })
+            if (!registro) return response.status(404).json({ mensagem: 'Registro não encontrado.' })
+            response.json(registro)
+        } catch (erro) {
+            console.error(`Erro ao atualizar ${caminho}:`, erro)
+            response.status(400).json({ mensagem: 'Dados inválidos.', detalhes: erro.message })
+        }
+    })
+
+    app.delete(`${caminho}/:_id`, async (request, response) => {
+        try {
+            const registro = await Modelo.findByIdAndDelete(request.params._id)
+            if (!registro) return response.status(404).json({ mensagem: 'Registro não encontrado.' })
+            response.json({ mensagem: 'Registro removido com sucesso.', registro })
+        } catch (erro) {
+            console.error(`Erro ao remover ${caminho}:`, erro)
+            response.status(400).json({ mensagem: 'Identificador inválido.' })
+        }
+    })
+}
+
+registrarCrud('/depositos', Deposito)
+registrarCrud('/compras', PedidoCompra, { populate: 'fornecedor' })
+registrarCrud('/vendas', PedidoVenda, { populate: ['cliente', 'itens.produto'], post: registrarVenda })
+registrarCrud('/contas-pagar', ContaPagar)
+registrarCrud('/contas-receber', ContaReceber)
+registrarCrud('/fiscal/configuracoes', ConfiguracaoFiscal)
+registrarCrud('/fiscal/documentos', DocumentoFiscal)
+registrarCrud('/colaboradores', Colaborador)
+registrarCrud('/folha-pagamento', FolhaPagamento, { populate: 'colaborador' })
+registrarCrud('/ponto', RegistroPonto, { populate: 'colaborador' })
+
+app.get('/estoque/movimentos', async (request, response) => {
+    try {
+        const movimentos = await MovimentoEstoque.find().populate('produto deposito').sort({ data: -1 })
+        response.json(movimentos)
+    } catch (erro) {
+        console.error('Erro ao listar movimentos de estoque:', erro)
+        response.status(500).json({ mensagem: 'Erro interno ao listar movimentos.' })
+    }
+})
+
+app.post('/estoque/movimentos', async (request, response) => {
+    const { produto: produtoId, deposito: depositoId, tipo, quantidade, motivo, documento, data } = request.body
+    if (!['entrada', 'saida', 'ajuste'].includes(tipo) || !Number.isFinite(Number(quantidade)) || Number(quantidade) <= 0) {
+        return response.status(400).json({ mensagem: 'Tipo e quantidade válida são obrigatórios.' })
+    }
+
+    try {
+        const produto = await Produto.findById(produtoId)
+        if (!produto) return response.status(404).json({ mensagem: 'Produto não encontrado.' })
+        if (!await Deposito.exists({ _id: depositoId, ativo: true })) {
+            return response.status(404).json({ mensagem: 'Depósito não encontrado ou inativo.' })
+        }
+
+        const valor = Number(quantidade)
+        const variacao = tipo === 'entrada' ? valor : tipo === 'saida' ? -valor : 0
+        if (tipo === 'saida' && produto.quantidadeEstoque < valor) {
+            return response.status(409).json({ mensagem: 'Estoque insuficiente para esta saída.' })
+        }
+        if (tipo === 'ajuste' && valor < 0) {
+            return response.status(400).json({ mensagem: 'Ajuste deve informar um saldo positivo.' })
+        }
+
+        if (tipo === 'ajuste') produto.quantidadeEstoque = valor
+        else produto.quantidadeEstoque += variacao
+        await produto.save()
+
+        const movimento = await MovimentoEstoque.create({ produto: produtoId, deposito: depositoId, tipo, quantidade: valor, motivo, documento, data })
+        response.status(201).json({ movimento, produto })
+    } catch (erro) {
+        console.error('Erro ao registrar movimento de estoque:', erro)
+        response.status(400).json({ mensagem: 'Não foi possível registrar o movimento.', detalhes: erro.message })
+    }
+})
+
+app.get('/estoque/saldos', async (request, response) => {
+    try {
+        const saldos = await MovimentoEstoque.aggregate([
+            { $group: {
+                _id: { deposito: '$deposito', produto: '$produto' },
+                entradas: { $sum: { $cond: [{ $eq: ['$tipo', 'entrada'] }, '$quantidade', 0] } },
+                saidas: { $sum: { $cond: [{ $eq: ['$tipo', 'saida'] }, '$quantidade', 0] } },
+                ajustes: { $sum: { $cond: [{ $eq: ['$tipo', 'ajuste'] }, '$quantidade', 0] } }
+            } },
+            { $lookup: { from: 'produtos', localField: '_id.produto', foreignField: '_id', as: 'produto' } },
+            { $lookup: { from: 'depositos', localField: '_id.deposito', foreignField: '_id', as: 'deposito' } },
+            { $unwind: '$produto' },
+            { $unwind: '$deposito' },
+            { $project: {
+                _id: 0,
+                produto: { _id: '$produto._id', nome: '$produto.nomeProduto' },
+                deposito: { _id: '$deposito._id', nome: '$deposito.nome', codigo: '$deposito.codigo' },
+                saldo: { $add: [{ $subtract: ['$entradas', '$saidas'] }, '$ajustes'] }
+            } },
+            { $sort: { 'deposito.nome': 1, 'produto.nome': 1 } }
+        ])
+        response.json(saldos)
+    } catch (erro) {
+        console.error('Erro ao consultar saldos por depósito:', erro)
+        response.status(500).json({ mensagem: 'Erro interno ao consultar saldos.' })
+    }
+})
+
+app.post('/compras/:_id/receber', async (request, response) => {
+    try {
+        const pedido = await PedidoCompra.findByIdAndUpdate(
+            request.params._id,
+            { status: 'recebido' },
+            { new: true, runValidators: true }
+        )
+        if (!pedido) return response.status(404).json({ mensagem: 'Pedido de compra não encontrado.' })
+        response.json({ mensagem: 'Pedido marcado como recebido.', pedido })
+    } catch (erro) {
+        console.error('Erro ao receber pedido de compra:', erro)
+        response.status(400).json({ mensagem: 'Identificador inválido.' })
+    }
+})
+
+app.get('/relatorios/resumo', async (request, response) => {
+    try {
+        const [produtos, fornecedores, colaboradores, contasPagar, contasReceber, vendas] = await Promise.all([
+            Produto.find().select('quantidadeEstoque estoqueMinimo preco'),
+            Fornecedor.countDocuments(),
+            Colaborador.countDocuments({ ativo: true }),
+            ContaPagar.find({ status: 'pendente' }).select('valor'),
+            ContaReceber.find({ status: 'pendente' }).select('valor'),
+            PedidoVenda.find({ status: { $ne: 'cancelado' } }).select('total')
+        ])
+        response.json({
+            produtos: produtos.length,
+            estoque: produtos.reduce((total, produto) => total + produto.quantidadeEstoque, 0),
+            estoqueBaixo: produtos.filter(produto => produto.quantidadeEstoque <= produto.estoqueMinimo).length,
+            fornecedores,
+            colaboradores,
+            contasPagar: contasPagar.reduce((total, conta) => total + conta.valor, 0),
+            contasReceber: contasReceber.reduce((total, conta) => total + conta.valor, 0),
+            vendas: vendas.reduce((total, venda) => total + venda.total, 0)
+        })
+    } catch (erro) {
+        console.error('Erro ao gerar resumo gerencial:', erro)
+        response.status(500).json({ mensagem: 'Erro interno ao gerar relatório.' })
+    }
+})
+
 //request (requisicao) front
 //response(backend ) 
 // JSON (JavaScript object Notatation) - notacao de objetos javascript
@@ -258,9 +822,24 @@ app.put('/fornecedores/:_id', async (request, response) => {
 
 
 
-app.listen(3000, () => {
-    console.log("Servidor Rodando Na porta 3000")
-})
+const port = Number(process.env.PORT) || 3000
+
+async function iniciarServidor() {
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`Servidor aceitando conexões em http://0.0.0.0:${port}`)
+    })
+
+    try {
+        await conectarMongo()
+        console.log('Conectado ao banco de dados MongoDB.')
+    } catch (error) {
+        console.error('Não foi possível conectar ao MongoDB:', error.message)
+    }
+}
+
+if (!process.env.VERCEL) iniciarServidor()
+
+export default app
 
 
 //localhost:3000/usuarios
