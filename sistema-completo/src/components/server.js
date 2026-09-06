@@ -256,9 +256,11 @@ function verificarSenha(senha, hashArmazenado) {
     })
 }
 
-function criarToken(usuarioId) {
+function criarToken(usuarioId, email, perfil) {
     const payload = Buffer.from(JSON.stringify({
         usuarioId,
+        email,
+        perfil,
         expiraEm: Date.now() + 7 * 24 * 60 * 60 * 1000
     })).toString('base64url')
     const assinatura = crypto
@@ -295,18 +297,19 @@ async function exigirAutenticacao(request, response, next) {
     if (!tokenValido) return response.status(401).json({ mensagem: 'Faça login para continuar.' })
 
     request.usuarioId = dadosToken.usuarioId
+    request.usuarioEmail = dadosToken.email
+    request.perfil = dadosToken.perfil
     next()
 }
 
 async function exigirAdministrador(request, response, next) {
     const usuario = await Usuario.findById(request.usuarioId)
-    const emailAdmin = usuario
-        ? await EmailAdmin.exists({ email: usuario.email })
-        : null
-    if (!usuario || (usuario.perfil !== 'admin' && !emailAdmin)) {
+    const email = usuario?.email || request.usuarioEmail
+    const emailAdmin = email ? await EmailAdmin.findOne({ email }) : null
+    if (!emailAdmin && (!usuario || usuario.perfil !== 'admin')) {
         return response.status(403).json({ mensagem: 'Apenas administradores podem realizar esta ação.' })
     }
-    request.usuarioAtual = usuario
+    request.usuarioAtual = usuario || emailAdmin
     next()
 }
 
@@ -325,7 +328,9 @@ app.post('/auth/login', async (request, response) => {
             ? await verificarSenha(senha, usuario.passwordHash)
             : false
 
-        if (!usuario || (!senhaAdminValida && (usuario.acesso !== 'aprovado' || !senhaUsuarioValida))) {
+        const loginAdminValido = administrador && senhaAdminValida
+        const loginUsuarioValido = usuario && usuario.acesso === 'aprovado' && senhaUsuarioValida
+        if (!loginAdminValido && !loginUsuarioValido) {
             if (usuario && usuario.acesso === 'pendente') {
                 return response.status(403).json({ mensagem: 'Seu acesso ainda aguarda aprovação de um administrador.' })
             }
@@ -336,12 +341,16 @@ app.post('/auth/login', async (request, response) => {
         }
 
         response.json({
-            token: criarToken(usuario._id.toString()),
+            token: criarToken(
+                (usuario?._id || administrador._id).toString(),
+                usuario?.email || administrador.email,
+                loginAdminValido ? 'admin' : usuario.perfil
+            ),
             usuario: {
-                id: usuario._id,
-                nome: usuario.nome,
-                email: usuario.email,
-                perfil: administrador && senhaAdminValida ? 'admin' : usuario.perfil
+                id: usuario?._id || administrador._id,
+                nome: usuario?.nome || administrador.email,
+                email: usuario?.email || administrador.email,
+                perfil: loginAdminValido ? 'admin' : usuario.perfil
             }
         })
     } catch (erro) {
@@ -356,9 +365,14 @@ app.post('/auth/logout', exigirAutenticacao, (request, response) => {
 
 app.get('/auth/me', exigirAutenticacao, async (request, response) => {
     const usuario = await Usuario.findById(request.usuarioId)
-    if (!usuario) return response.status(401).json({ mensagem: 'Usuário não encontrado.' })
-    const emailAdmin = await EmailAdmin.exists({ email: usuario.email })
-    response.json({ id: usuario._id, nome: usuario.nome, email: usuario.email, perfil: emailAdmin ? 'admin' : usuario.perfil })
+    if (usuario) {
+        const emailAdmin = await EmailAdmin.exists({ email: usuario.email })
+        return response.json({ id: usuario._id, nome: usuario.nome, email: usuario.email, perfil: emailAdmin ? 'admin' : usuario.perfil })
+    }
+
+    const administrador = await EmailAdmin.findById(request.usuarioId)
+    if (!administrador) return response.status(401).json({ mensagem: 'Usuário não encontrado.' })
+    response.json({ id: administrador._id, nome: administrador.email, email: administrador.email, perfil: 'admin' })
 })
 
 app.use((request, response, next) => {
