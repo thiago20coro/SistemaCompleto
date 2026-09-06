@@ -9,10 +9,20 @@ app.use(express.json()) // avisando que vou usar JSON (JSON é o padrao da inter
 const isProduction = process.env.NODE_ENV === 'production'
 const mongoUri = process.env.MONGODB_URI
 const tokenSecret = process.env.AUTH_SECRET || (isProduction ? '' : 'chave-local-de-desenvolvimento')
+const normalizeOrigin = origin => origin.trim().replace(/\/$/, '')
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
     .split(',')
-    .map(origin => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean)
+const isProjectVercelOrigin = origin => {
+    try {
+        const url = new URL(origin)
+        return url.protocol === 'https:'
+            && /^sistema-completo(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(url.hostname)
+    } catch {
+        return false
+    }
+}
 const isLocalOrigin = origin => {
     if (isProduction || !origin) return false
     try {
@@ -49,7 +59,8 @@ app.use(async (request, response, next) => {
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || isLocalOrigin(origin)) {
+        const normalizedOrigin = origin ? normalizeOrigin(origin) : ''
+        if (!origin || allowedOrigins.includes(normalizedOrigin) || isProjectVercelOrigin(normalizedOrigin) || isLocalOrigin(normalizedOrigin)) {
             return callback(null, true)
         }
         return callback(new Error('Origem não autorizada pelo CORS.'))
