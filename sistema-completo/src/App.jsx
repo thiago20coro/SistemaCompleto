@@ -1,6 +1,6 @@
 import './App.css'
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import { http } from './config/http.js'
 import Login from './components/Login.jsx'
 import CadastroUsuario from './components/CadastroUsuario.jsx'
 import FormProduto from './components/FormProduto.jsx'
@@ -26,23 +26,22 @@ function App() {
       setVerificandoSessao(false)
       return
     }
-    axios.defaults.headers.common.Authorization = `Bearer ${token}`
-    axios.get(`${API_URL}/auth/me`)
+    http.setToken(token)
+    http.get(`${API_URL}/auth/me`)
       .then(resposta => setUsuarioAutenticado(resposta.data))
       .catch(() => {
         localStorage.removeItem('authToken')
-        delete axios.defaults.headers.common.Authorization
+        http.setToken(null)
       })
       .finally(() => setVerificandoSessao(false))
   }, [])
 
   function sair() {
-    const token = localStorage.getItem('authToken')
-    axios.post(`${API_URL}/auth/logout`).catch(error => {
+    http.post(`${API_URL}/auth/logout`).catch(error => {
       console.error('Não foi possível registrar o logout:', error)
     })
     localStorage.removeItem('authToken')
-    delete axios.defaults.headers.common.Authorization
+    http.setToken(null)
     setUsuarioAutenticado(null)
     setTelaAtiva('home')
   }

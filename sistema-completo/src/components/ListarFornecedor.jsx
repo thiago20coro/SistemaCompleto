@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function ListarFornecedores() {
@@ -23,7 +23,7 @@ function ListarFornecedores() {
   // Função para buscar os fornecedores da API
   async function buscarFornecedores() {
     try {
-      const resposta = await axios.get(`${API_URL}/fornecedores`)
+      const resposta = await http.get(`${API_URL}/fornecedores`)
       setFornecedores(resposta.data)
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error)
@@ -72,7 +72,7 @@ function ListarFornecedores() {
   // Deleta o fornecedor da API e atualiza a lista da tela
   async function deletarFornecedor(id) {
     try {
-      await axios.delete(`${API_URL}/fornecedores/${id}`)
+      await http.delete(`${API_URL}/fornecedores/${id}`)
       buscarFornecedores()
     } catch (error) {
       console.error("Erro ao deletar fornecedor:", error)
@@ -97,7 +97,7 @@ function ListarFornecedores() {
     }
 
     try {
-      await axios.put(`${API_URL}/fornecedores/${idEdicao}`, dadosFornecedor)
+      await http.put(`${API_URL}/fornecedores/${idEdicao}`, dadosFornecedor)
       setIdEdicao(null)
       limparFormulario()
       buscarFornecedores()

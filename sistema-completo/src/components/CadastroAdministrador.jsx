@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function CadastroAdministrador() {
@@ -15,7 +15,7 @@ function CadastroAdministrador() {
     setCarregando(true)
 
     try {
-      await axios.post(`${API_URL}/administradores`, { nome, email, senha })
+      await http.post(`${API_URL}/administradores`, { nome, email, senha })
       setNome('')
       setEmail('')
       setSenha('')

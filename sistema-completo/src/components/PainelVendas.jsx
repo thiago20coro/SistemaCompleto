@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 
@@ -15,8 +15,8 @@ function PainelVendas() {
 
   async function carregarDados() {
     const [produtosResposta, vendasResposta] = await Promise.all([
-      axios.get(`${API_URL}/produtos`),
-      axios.get(`${API_URL}/vendas`)
+      http.get(`${API_URL}/produtos`),
+      http.get(`${API_URL}/vendas`)
     ])
     setProdutos(produtosResposta.data)
     setVendas(vendasResposta.data)
@@ -75,7 +75,7 @@ function PainelVendas() {
     setCarregando(true)
     setMensagem('')
     try {
-      await axios.post(`${API_URL}/vendas`, {
+      await http.post(`${API_URL}/vendas`, {
         nomeCliente: nomeCliente.trim(),
         itens: carrinho.map(item => ({ produto: item.produto, quantidade: item.quantidade })),
         status: 'faturado'

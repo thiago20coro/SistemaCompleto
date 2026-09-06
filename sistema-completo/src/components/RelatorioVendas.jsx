@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 
@@ -39,7 +39,7 @@ function RelatorioVendas() {
   const [mensagem, setMensagem] = useState('')
 
   useEffect(() => {
-    axios.get(`${API_URL}/vendas`)
+    http.get(`${API_URL}/vendas`)
       .then(resposta => setVendas(resposta.data))
       .catch(() => setMensagem('Não foi possível carregar o relatório de vendas.'))
   }, [])

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function Login({ onLogin }) {
@@ -13,9 +13,9 @@ function Login({ onLogin }) {
     setCarregando(true)
     setMensagem('')
     try {
-      const resposta = await axios.post(`${API_URL}/auth/login`, { email, senha })
+      const resposta = await http.post(`${API_URL}/auth/login`, { email, senha })
       localStorage.setItem('authToken', resposta.data.token)
-      axios.defaults.headers.common.Authorization = `Bearer ${resposta.data.token}`
+      http.setToken(resposta.data.token)
       onLogin(resposta.data.usuario)
     } catch (error) {
       setMensagem(error.response?.data?.mensagem || 'Não foi possível fazer login.')

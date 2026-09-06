@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 const PRODUTOS_URL = `${API_URL}/produtos`;
@@ -51,7 +51,7 @@ export default function FormProduto() {
         };
 
         try {
-            const resposta = await axios.post(PRODUTOS_URL, dadosProduto);
+            const resposta = await http.post(PRODUTOS_URL, dadosProduto);
             console.log('Resposta do banco:', resposta.data);
             alert('Produto cadastrado com sucesso!');
             limparFormulario(); 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 
@@ -19,8 +19,8 @@ function DashboardERP({ onNavigate }) {
   useEffect(() => {
     async function carregarResumo() {
       const [produtosResposta, fornecedoresResposta] = await Promise.allSettled([
-        axios.get(`${API_URL}/produtos`),
-        axios.get(`${API_URL}/fornecedores`)
+        http.get(`${API_URL}/produtos`),
+        http.get(`${API_URL}/fornecedores`)
       ])
       const produtos = produtosResposta.status === 'fulfilled' ? produtosResposta.value.data : []
       const fornecedores = fornecedoresResposta.status === 'fulfilled' ? fornecedoresResposta.value.data : []

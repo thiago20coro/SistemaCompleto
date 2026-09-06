@@ -1,6 +1,6 @@
 // Se preferir, pode manter o nome antigo do CSS
 import { useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function CadastroFornecedor() {
@@ -53,7 +53,7 @@ function CadastroFornecedor() {
 
     try {
       // Rota atualizada para fornecedores
-      await axios.post(`${API_URL}/fornecedores`, dadosFornecedor)
+      await http.post(`${API_URL}/fornecedores`, dadosFornecedor)
       
       setMensagem('Novo fornecedor criado com sucesso!')
       limparFormulario()

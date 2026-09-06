@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function CadastroUsuario() {
@@ -46,7 +46,7 @@ function CadastroUsuario() {
     }
 
     try {
-      await axios.post(`${API_URL}/usuarios`, dadosUsuario)
+      await http.post(`${API_URL}/usuarios`, dadosUsuario)
       
       setMensagem('Novo usuário criado com sucesso! A senha já foi protegida.')
       limparFormulario()

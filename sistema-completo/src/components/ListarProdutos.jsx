@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 const PRODUTOS_URL = `${API_URL}/produtos`;
@@ -24,7 +24,7 @@ export default function ListarProdutos() {
 
     async function buscarProdutos() {
         try {
-            const resposta = await axios.get(PRODUTOS_URL);
+            const resposta = await http.get(PRODUTOS_URL);
             setProdutos(resposta.data);
         } catch (erro) {
             console.error('Erro ao buscar produtos:', erro);
@@ -84,7 +84,7 @@ export default function ListarProdutos() {
         };
 
         try {
-            await axios.put(`${PRODUTOS_URL}/${idEdicao}`, dadosProduto);
+            await http.put(`${PRODUTOS_URL}/${idEdicao}`, dadosProduto);
             alert('Produto atualizado com sucesso!');
             setIdEdicao('');
             limparCampos();
@@ -100,7 +100,7 @@ export default function ListarProdutos() {
 
         if (window.confirm('Tem certeza que deseja deletar este produto?')) {
             try {
-                await axios.delete(`${PRODUTOS_URL}/${idProduto}`);
+                await http.delete(`${PRODUTOS_URL}/${idProduto}`);
                 alert('Produto deletado com sucesso!');
                 if (idEdicao === idProduto) {
                     cancelarEdicao();

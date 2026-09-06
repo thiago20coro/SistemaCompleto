@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 
-import axios from 'axios'
+import { http } from '../config/http.js'
 import { API_URL } from '../config/api.js'
 
 function ListarUsuarios({ isAdmin }) {
@@ -20,7 +20,7 @@ function ListarUsuarios({ isAdmin }) {
 
   // Função para buscar os usuários da API
   async function buscarUsuarios() {
-    const resposta = await axios.get(`${API_URL}/usuarios`)
+    const resposta = await http.get(`${API_URL}/usuarios`)
     setUsers(resposta.data)
   }
 
@@ -59,13 +59,13 @@ function ListarUsuarios({ isAdmin }) {
 
   // Deleta o usuário da API e atualiza a lista da tela
   async function deletarUsuario(id) {
-    await axios.delete(`${API_URL}/usuarios/${id}`)
+    await http.delete(`${API_URL}/usuarios/${id}`)
     buscarUsuarios()
   }
 
   async function alterarAcesso(id, acesso) {
     try {
-      await axios.put(`${API_URL}/usuarios/${id}/acesso`, { acesso })
+      await http.put(`${API_URL}/usuarios/${id}/acesso`, { acesso })
       setMensagem(`Acesso atualizado para ${acesso}.`)
       buscarUsuarios()
     } catch (error) {
@@ -87,7 +87,7 @@ function ListarUsuarios({ isAdmin }) {
       cpf: cpf
     }
 
-    await axios.put(`${API_URL}/usuarios/${idEdicao}`, dadosUsuario)
+    await http.put(`${API_URL}/usuarios/${idEdicao}`, dadosUsuario)
     
     setIdEdicao(null)
     limparFormulario()
