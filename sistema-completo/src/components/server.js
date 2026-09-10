@@ -5,12 +5,13 @@ import crypto from 'node:crypto'
 import { supabase } from '../config/supabase.js'
 const app = express()
 app.use(express.json()) // avisando que vou usar JSON (JSON é o padrao da internet formato de dados) 
+app.use(cors())
 
 const isProduction = process.env.NODE_ENV === 'production'
 const mongoUri = process.env.MONGODB_URI
-const tokenSecret = process.env.AUTH_SECRET || (isProduction ? '' : 'chave-local-de-desenvolvimento')
+const tokenSecret = process.env.AUTH_SECRET || (isProduction ? '' : 'CHAVE-LOCAL-DE-DESENVOLVIMENTO-NAO-USAR-EM-PRODUCAO')
 const normalizeOrigin = origin => origin.trim().replace(/\/$/, '')
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173' || 'https://sistema-completo-3n9u.vercel.app/')
     .split(',')
     .map(normalizeOrigin)
     .filter(Boolean)
