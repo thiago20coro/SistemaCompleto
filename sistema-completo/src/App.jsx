@@ -21,28 +21,13 @@ function App() {
   const [verificandoSessao, setVerificandoSessao] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-      setVerificandoSessao(false)
-      return
-    }
-    axios.defaults.headers.common.Authorization = `Bearer ${token}`
     axios.get(`${API_URL}/auth/me`)
       .then(resposta => setUsuarioAutenticado(resposta.data))
-      .catch(() => {
-        localStorage.removeItem('authToken')
-        delete axios.defaults.headers.common.Authorization
-      })
+      .catch(() => setUsuarioAutenticado(null))
       .finally(() => setVerificandoSessao(false))
   }, [])
 
   function sair() {
-    const token = localStorage.getItem('authToken')
-    axios.post(`${API_URL}/auth/logout`).catch(error => {
-      console.error('Não foi possível registrar o logout:', error)
-    })
-    localStorage.removeItem('authToken')
-    delete axios.defaults.headers.common.Authorization
     setUsuarioAutenticado(null)
     setTelaAtiva('home')
   }

@@ -9,7 +9,6 @@ app.use(cors())
 
 const isProduction = process.env.NODE_ENV === 'production'
 const mongoUri = process.env.MONGODB_URI
-const tokenSecret = process.env.AUTH_SECRET || (isProduction ? '' : 'CHAVE-LOCAL-DE-DESENVOLVIMENTO-NAO-USAR-EM-PRODUCAO')
 const normalizeOrigin = origin => origin.trim().replace(/\/$/, '')
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173' || 'https://sistema-completo-3n9u.vercel.app/')
     .split(',')
@@ -35,7 +34,6 @@ const isLocalOrigin = origin => {
 }
 
 if (!mongoUri) throw new Error('MONGODB_URI precisa ser configurada até a migração dos modelos para o Supabase.')
-if (!tokenSecret) throw new Error('AUTH_SECRET precisa ser configurada em produção.')
 
 if (supabase) console.log('Cliente Supabase configurado.')
 
@@ -244,114 +242,31 @@ function criarHashSenha(senha) {
     })
 }
 
-function verificarSenha(senha, hashArmazenado) {
-    return new Promise((resolve, reject) => {
-        const [salt, hash] = hashArmazenado.split(':')
-        if (!salt || !hash) return resolve(false)
-        crypto.scrypt(senha, salt, 64, (erro, derivada) => {
-            if (erro) return reject(erro)
-            const hashRecebido = Buffer.from(hash, 'hex')
-            if (hashRecebido.length !== derivada.length) return resolve(false)
-            resolve(crypto.timingSafeEqual(hashRecebido, derivada))
-        })
-    })
-}
-
-function criarToken(usuarioId, email, perfil) {
-    const payload = Buffer.from(JSON.stringify({
-        usuarioId,
-        email,
-        perfil,
-        expiraEm: Date.now() + 7 * 24 * 60 * 60 * 1000
-    })).toString('base64url')
-    const assinatura = crypto
-        .createHmac('sha256', tokenSecret)
-        .update(payload)
-        .digest('base64url')
-    return `${payload}.${assinatura}`
-}
-
 async function exigirAutenticacao(request, response, next) {
-    const token = request.headers.authorization?.replace('Bearer ', '')
-    const [payloadCodificado, assinaturaRecebida] = token?.split('.') || []
-    if (!payloadCodificado || !assinaturaRecebida) {
-        return response.status(401).json({ mensagem: 'Faça login para continuar.' })
-    }
-
-    const assinaturaEsperada = crypto
-        .createHmac('sha256', tokenSecret)
-        .update(payloadCodificado)
-        .digest('base64url')
-    const assinaturaValida = assinaturaRecebida.length === assinaturaEsperada.length
-        && crypto.timingSafeEqual(Buffer.from(assinaturaRecebida), Buffer.from(assinaturaEsperada))
-
-    let dadosToken
-    try {
-        dadosToken = JSON.parse(Buffer.from(payloadCodificado, 'base64url').toString())
-    } catch {
-        dadosToken = null
-    }
-
-    const tokenValido = assinaturaValida
-        && dadosToken?.usuarioId
-        && Number(dadosToken.expiraEm) > Date.now()
-    if (!tokenValido) return response.status(401).json({ mensagem: 'Faça login para continuar.' })
-
-    request.usuarioId = dadosToken.usuarioId
-    request.usuarioEmail = dadosToken.email
-    request.perfil = dadosToken.perfil
+    const administrador = await EmailAdmin.findOne() || await Usuario.findOne({ perfil: 'admin' })
+    if (!administrador) return response.status(403).json({ mensagem: 'Cadastre um administrador para continuar.' })
+    request.usuarioAtual = administrador
     next()
 }
 
 async function exigirAdministrador(request, response, next) {
-    const usuario = await Usuario.findById(request.usuarioId)
-    const email = usuario?.email || request.usuarioEmail
-    const emailAdmin = email ? await EmailAdmin.findOne({ email }) : null
-    if (!emailAdmin && (!usuario || usuario.perfil !== 'admin')) {
-        return response.status(403).json({ mensagem: 'Apenas administradores podem realizar esta ação.' })
-    }
-    request.usuarioAtual = usuario || emailAdmin
-    next()
+    return exigirAutenticacao(request, response, next)
 }
 
 app.post('/auth/login', async (request, response) => {
     try {
         const email = String(request.body.email || '').trim().toLowerCase()
-        const senha = String(request.body.senha || '')
-        if (!email || !senha) return response.status(400).json({ mensagem: 'E-mail e senha são obrigatórios.' })
+        if (!email) return response.status(400).json({ mensagem: 'O e-mail do administrador é obrigatório.' })
 
-        const administrador = await EmailAdmin.findOne({ email }).select('+senhaHash')
-        const usuario = await Usuario.findOne({ email }).select('+passwordHash')
-        const senhaAdminValida = administrador
-            ? await verificarSenha(senha, administrador.senhaHash)
-            : false
-        const senhaUsuarioValida = usuario
-            ? await verificarSenha(senha, usuario.passwordHash)
-            : false
-
-        const loginAdminValido = administrador && senhaAdminValida
-        const loginUsuarioValido = usuario && usuario.acesso === 'aprovado' && senhaUsuarioValida
-        if (!loginAdminValido && !loginUsuarioValido) {
-            if (usuario && usuario.acesso === 'pendente') {
-                return response.status(403).json({ mensagem: 'Seu acesso ainda aguarda aprovação de um administrador.' })
-            }
-            if (usuario && usuario.acesso === 'bloqueado') {
-                return response.status(403).json({ mensagem: 'Seu acesso foi bloqueado por um administrador.' })
-            }
-            return response.status(401).json({ mensagem: 'E-mail ou senha inválidos.' })
-        }
+        const administrador = await EmailAdmin.findOne({ email }) || await Usuario.findOne({ email, perfil: 'admin' })
+        if (!administrador) return response.status(401).json({ mensagem: 'Administrador não encontrado.' })
 
         response.json({
-            token: criarToken(
-                (usuario?._id || administrador._id).toString(),
-                usuario?.email || administrador.email,
-                loginAdminValido ? 'admin' : usuario.perfil
-            ),
             usuario: {
-                id: usuario?._id || administrador._id,
-                nome: usuario?.nome || administrador.email,
-                email: usuario?.email || administrador.email,
-                perfil: loginAdminValido ? 'admin' : usuario.perfil
+                id: administrador._id,
+                nome: administrador.nome || administrador.email,
+                email: administrador.email,
+                perfil: 'admin'
             }
         })
     } catch (erro) {
@@ -360,20 +275,10 @@ app.post('/auth/login', async (request, response) => {
     }
 })
 
-app.post('/auth/logout', exigirAutenticacao, (request, response) => {
-    response.json({ mensagem: 'Logout realizado com sucesso.' })
-})
-
-app.get('/auth/me', exigirAutenticacao, async (request, response) => {
-    const usuario = await Usuario.findById(request.usuarioId)
-    if (usuario) {
-        const emailAdmin = await EmailAdmin.exists({ email: usuario.email })
-        return response.json({ id: usuario._id, nome: usuario.nome, email: usuario.email, perfil: emailAdmin ? 'admin' : usuario.perfil })
-    }
-
-    const administrador = await EmailAdmin.findById(request.usuarioId)
-    if (!administrador) return response.status(401).json({ mensagem: 'Usuário não encontrado.' })
-    response.json({ id: administrador._id, nome: administrador.email, email: administrador.email, perfil: 'admin' })
+app.get('/auth/me', async (request, response) => {
+    const administrador = await EmailAdmin.findOne() || await Usuario.findOne({ perfil: 'admin' })
+    if (!administrador) return response.status(401).json({ mensagem: 'Administrador não encontrado.' })
+    response.json({ id: administrador._id, nome: administrador.nome || administrador.email, email: administrador.email, perfil: 'admin' })
 })
 
 app.use((request, response, next) => {
