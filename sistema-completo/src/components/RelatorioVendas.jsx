@@ -30,7 +30,8 @@ function formatarPeriodo(chave, periodo) {
 }
 
 function quantidadeDeItens(venda) {
-  return (venda.itens || []).reduce((total, item) => total + (Number(item.quantidade) || 0), 0)
+  const itens = Array.isArray(venda.itens) ? venda.itens : []
+  return itens.reduce((total, item) => total + (Number(item.quantidade) || 0), 0)
 }
 
 function RelatorioVendas() {
@@ -40,7 +41,7 @@ function RelatorioVendas() {
 
   useEffect(() => {
     axios.get(`${API_URL}/vendas`)
-      .then(resposta => setVendas(resposta.data))
+      .then(resposta => setVendas(Array.isArray(resposta.data) ? resposta.data : []))
       .catch(() => setMensagem('Não foi possível carregar o relatório de vendas.'))
   }, [])
 

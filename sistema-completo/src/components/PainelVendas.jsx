@@ -18,8 +18,8 @@ function PainelVendas() {
       axios.get(`${API_URL}/produtos`),
       axios.get(`${API_URL}/vendas`)
     ])
-    setProdutos(produtosResposta.data)
-    setVendas(vendasResposta.data)
+    setProdutos(Array.isArray(produtosResposta.data) ? produtosResposta.data : [])
+    setVendas(Array.isArray(vendasResposta.data) ? vendasResposta.data : [])
   }
 
   useEffect(() => {

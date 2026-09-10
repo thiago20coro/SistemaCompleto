@@ -22,8 +22,10 @@ function DashboardERP({ onNavigate }) {
         axios.get(`${API_URL}/produtos`),
         axios.get(`${API_URL}/fornecedores`)
       ])
-      const produtos = produtosResposta.status === 'fulfilled' ? produtosResposta.value.data : []
-      const fornecedores = fornecedoresResposta.status === 'fulfilled' ? fornecedoresResposta.value.data : []
+      const produtosRespostaData = produtosResposta.status === 'fulfilled' ? produtosResposta.value.data : []
+      const fornecedoresRespostaData = fornecedoresResposta.status === 'fulfilled' ? fornecedoresResposta.value.data : []
+      const produtos = Array.isArray(produtosRespostaData) ? produtosRespostaData : []
+      const fornecedores = Array.isArray(fornecedoresRespostaData) ? fornecedoresRespostaData : []
       setResumo({
         produtos: produtos.length,
         estoque: produtos.reduce((total, produto) => total + (Number(produto.quantidadeEstoque) || 0), 0),
