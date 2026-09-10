@@ -24,7 +24,7 @@ function ListarFornecedores() {
   async function buscarFornecedores() {
     try {
       const resposta = await axios.get(`${API_URL}/fornecedores`)
-      setFornecedores(resposta.data)
+      setFornecedores(Array.isArray(resposta.data) ? resposta.data : [])
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error)
     }

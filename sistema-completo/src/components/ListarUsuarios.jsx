@@ -21,7 +21,7 @@ function ListarUsuarios({ isAdmin }) {
   // Função para buscar os usuários da API
   async function buscarUsuarios() {
     const resposta = await axios.get(`${API_URL}/usuarios`)
-    setUsers(resposta.data)
+    setUsers(Array.isArray(resposta.data) ? resposta.data : [])
   }
 
   useEffect(() => {

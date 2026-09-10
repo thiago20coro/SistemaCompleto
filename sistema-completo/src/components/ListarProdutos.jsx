@@ -25,7 +25,7 @@ export default function ListarProdutos() {
     async function buscarProdutos() {
         try {
             const resposta = await axios.get(PRODUTOS_URL);
-            setProdutos(resposta.data);
+            setProdutos(Array.isArray(resposta.data) ? resposta.data : []);
         } catch (erro) {
             console.error('Erro ao buscar produtos:', erro);
         }
