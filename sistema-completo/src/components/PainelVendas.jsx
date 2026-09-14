@@ -13,7 +13,7 @@ function PainelVendas() {
   const [enderecoCliente, setEnderecoCliente] = useState('')
   const [telefoneCliente, setTelefoneCliente] = useState('')
   const [emailCliente, setEmailCliente] = useState('')
-  const [idadeCliente, setIdadeCliente] = useState(18)
+  const [idadeCliente, setIdadeCliente] = useState(13)
   const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false)
   const [carrinho, setCarrinho] = useState([])
   const [mensagem, setMensagem] = useState('')
@@ -62,7 +62,7 @@ function PainelVendas() {
       ? itens.map(item => item.produto === produtoAtual._id ? { ...item, quantidade: novaQuantidade } : item)
       : [...itens, {
         produto: produtoAtual._id,
-        nome: produtoAtual.nome || produtoAtual.nomeProduto,
+        nome: produtoAtual.nomeProduto || produtoAtual.nome || 'Produto sem nome',
         quantidade: quantidadeInformada,
         valorUnitario: Number(produtoAtual.preco)
       }]
@@ -121,7 +121,8 @@ function PainelVendas() {
           cep: '00000-000',
           celular: telefoneCliente.trim(),
           cpf: cpfCliente.trim(),
-          senha: 'Cliente@123'
+          senha: 'Cliente@123',
+          tipoCadastro: 'cliente'
         })
 
         clienteId = respostaCadastro.data?._id
@@ -141,7 +142,7 @@ function PainelVendas() {
       setEnderecoCliente('')
       setTelefoneCliente('')
       setEmailCliente('')
-      setIdadeCliente(18)
+      setIdadeCliente(13)
       setMostrarCadastroCliente(false)
       setCarrinho([])
       await carregarDados()
@@ -215,7 +216,7 @@ function PainelVendas() {
               <div className='cliente-cadastro-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
                 <label>
                   Idade
-                  <input type='number' min='18' value={idadeCliente} onChange={event => setIdadeCliente(event.target.value)} placeholder='Idade' required />
+                  <input type='number' min='13' value={idadeCliente} onChange={event => setIdadeCliente(event.target.value)} placeholder='Idade' required />
                 </label>
                 <label>
                   E-mail (opcional)
@@ -238,7 +239,7 @@ function PainelVendas() {
                 {produtosOrdenados.length === 0 ? (
                   <option value='' disabled>Nenhum produto cadastrado</option>
                 ) : produtosOrdenados.map(produto => (
-                  <option key={produto._id} value={produto._id} disabled={Number(produto.quantidadeEstoque) <= 0}>
+                  <option key={produto._id} value={produto._id}>
                     {produto.nomeProduto || produto.nome || 'Produto sem nome'} - estoque: {Number(produto.quantidadeEstoque) || 0}
                   </option>
                 ))}

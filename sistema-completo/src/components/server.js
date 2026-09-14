@@ -493,14 +493,16 @@ app.get('/usuarios', async (request, response) => {
 // async / await 
 
 app.post('/usuarios', async (request,response)=>{
-    const { senha, passwordHash, ...dadosUsuario } = request.body
+    const { senha, passwordHash, tipoCadastro, ...dadosUsuario } = request.body
+    const cadastroCliente = tipoCadastro === 'cliente'
     if (!senha || senha.length < 6) {
         return response.status(400).json({ mensagem: 'A senha deve ter pelo menos 6 caracteres.' })
     }
 
     const idade = Number(dadosUsuario.idade)
-    if (!Number.isInteger(idade) || idade < 18) {
-        return response.status(400).json({ mensagem: 'O usuário deve ter pelo menos 18 anos.' })
+    const idadeMinima = cadastroCliente ? 13 : 18
+    if (!Number.isInteger(idade) || idade < idadeMinima) {
+        return response.status(400).json({ mensagem: `O ${cadastroCliente ? 'cliente' : 'usuário'} deve ter pelo menos ${idadeMinima} anos.` })
     }
 
     const totalUsuarios = await Usuario.countDocuments()
@@ -509,8 +511,8 @@ app.post('/usuarios', async (request,response)=>{
         idade,
         email: String(dadosUsuario.email || '').trim().toLowerCase(),
         passwordHash: await criarHashSenha(senha),
-        perfil: totalUsuarios === 0 ? 'admin' : 'usuario',
-        acesso: totalUsuarios === 0 ? 'aprovado' : 'pendente'
+        perfil: !cadastroCliente && totalUsuarios === 0 ? 'admin' : 'usuario',
+        acesso: cadastroCliente || totalUsuarios === 0 ? 'aprovado' : 'pendente'
     })
 
     // push é um metodo de array que adiciona o item ao array
