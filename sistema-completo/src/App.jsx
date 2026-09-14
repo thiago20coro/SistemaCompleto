@@ -15,25 +15,54 @@ import RelatorioVendas from './components/RelatorioVendas.jsx'
 import minhaFoto from './assets/Amor e Eu 1.jpg'
 import { API_URL } from './config/api.js'
 
+const TOKEN_KEY = 'admin-token'
+
 function App() {
   const [telaAtiva, setTelaAtiva] = useState("home")
   const [usuarioAutenticado, setUsuarioAutenticado] = useState(null)
   const [verificandoSessao, setVerificandoSessao] = useState(true)
 
+  function aplicarToken(token) {
+    if (token) {
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`
+      localStorage.setItem(TOKEN_KEY, token)
+      return
+    }
+
+    delete axios.defaults.headers.common.Authorization
+    localStorage.removeItem(TOKEN_KEY)
+  }
+
   useEffect(() => {
-    axios.get(`${API_URL}/auth/me`)
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) {
+      setUsuarioAutenticado(null)
+      setVerificandoSessao(false)
+      return
+    }
+
+    axios.get(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
       .then(resposta => setUsuarioAutenticado(resposta.data))
-      .catch(() => setUsuarioAutenticado(null))
+      .catch(() => {
+        setUsuarioAutenticado(null)
+        aplicarToken(null)
+      })
       .finally(() => setVerificandoSessao(false))
   }, [])
 
   function sair() {
     setUsuarioAutenticado(null)
+    aplicarToken(null)
     setTelaAtiva('home')
   }
 
   if (verificandoSessao) return <div style={{ padding: 40 }}>Verificando acesso...</div>
-  if (!usuarioAutenticado) return <Login onLogin={setUsuarioAutenticado} />
+  if (!usuarioAutenticado) return <Login onLogin={(usuario, token) => {
+    aplicarToken(token)
+    setUsuarioAutenticado(usuario)
+  }} />
 
   const estiloBotao = (tela) => ({
     display: 'block',

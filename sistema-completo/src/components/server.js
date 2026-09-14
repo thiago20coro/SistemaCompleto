@@ -235,6 +235,35 @@ const RegistroPonto = mongoose.model('RegistroPonto', registroPontoSchema)
 
 const EMAIL_ADMIN_PADRAO = 'thiago39coro@gmail.com'
 const SENHA_ADMIN_PADRAO = 'Thiago@39'
+const sessoesAtivas = new Map()
+
+function gerarToken() {
+    return crypto.randomBytes(32).toString('hex')
+}
+
+function obterTokenDaRequisicao(request) {
+    const cabecalho = request.headers.authorization || ''
+    const match = cabecalho.match(/^Bearer\s+(.+)$/i)
+    return match ? match[1] : null
+}
+
+async function obterUsuarioAutenticado(request) {
+    const token = obterTokenDaRequisicao(request)
+    if (!token) return null
+
+    const sessao = sessoesAtivas.get(token)
+    if (!sessao) return null
+
+    const administrador = await EmailAdmin.findOne({ email: sessao.email }).select('+senhaHash')
+        || await Usuario.findOne({ email: sessao.email, perfil: 'admin' }).select('+passwordHash')
+
+    if (!administrador) {
+        sessoesAtivas.delete(token)
+        return null
+    }
+
+    return administrador
+}
 
 function criarHashSenha(senha) {
     return new Promise((resolve, reject) => {
@@ -339,7 +368,11 @@ app.post('/auth/login', async (request, response) => {
             return response.status(401).json({ mensagem: 'E-mail ou senha inválidos.' })
         }
 
+        const token = gerarToken()
+        sessoesAtivas.set(token, { email: administrador.email, perfil: 'admin' })
+
         response.json({
+            token,
             usuario: {
                 id: administrador._id,
                 nome: administrador.nome || administrador.email,
@@ -354,21 +387,21 @@ app.post('/auth/login', async (request, response) => {
 })
 
 app.get('/auth/me', async (request, response) => {
-    const administrador = await EmailAdmin.findOne() || await Usuario.findOne({ perfil: 'admin' })
-    if (!administrador) return response.status(401).json({ mensagem: 'Administrador não encontrado.' })
+    const administrador = await obterUsuarioAutenticado(request)
+    if (!administrador) return response.status(401).json({ mensagem: 'Faça login com usuário e senha para acessar o sistema.' })
     response.json({ id: administrador._id, nome: administrador.nome || administrador.email, email: administrador.email, perfil: 'admin' })
 })
 
-app.use((request, response, next) => {
+app.use(async (request, response, next) => {
     if (request.path === '/auth/login') return next()
-    if (request.path === '/produtos' && request.method === 'GET') return next()
-    if (request.path === '/usuarios' && request.method === 'POST') {
-        return Usuario.countDocuments().then(total => {
-            if (total === 0) return next()
-            exigirAutenticacao(request, response, () => exigirAdministrador(request, response, next))
-        }).catch(next)
+
+    const usuario = await obterUsuarioAutenticado(request)
+    if (!usuario) {
+        return response.status(401).json({ mensagem: 'Faça login com usuário e senha para acessar o sistema.' })
     }
-    exigirAutenticacao(request, response, next)
+
+    request.usuarioAtual = usuario
+    next()
 })
 
 //rota retorna produtos

@@ -14,7 +14,7 @@ function Login({ onLogin }) {
     setMensagem('')
     try {
       const resposta = await axios.post(`${API_URL}/auth/login`, { email, senha })
-      onLogin(resposta.data.usuario)
+      onLogin(resposta.data.usuario, resposta.data.token)
     } catch (error) {
       setMensagem(error.response?.data?.mensagem || 'Não foi possível fazer login.')
     } finally {
