@@ -13,6 +13,7 @@ function ListarUsuarios({ isAdmin }) {
   const [celular, setCelular] = useState('')
   const [cpf, setCpf] = useState('')
   const [users, setUsers] = useState([])
+  const [vendas, setVendas] = useState([])
   const [mensagem, setMensagem] = useState('')
   
   // Mantido para saber exatamente qual ID está em modo de edição
@@ -24,8 +25,14 @@ function ListarUsuarios({ isAdmin }) {
     setUsers(Array.isArray(resposta.data) ? resposta.data : [])
   }
 
+  async function buscarVendas() {
+    const resposta = await axios.get(`${API_URL}/vendas`)
+    setVendas(Array.isArray(resposta.data) ? resposta.data : [])
+  }
+
   useEffect(() => {
     buscarUsuarios()
+    buscarVendas()
   }, [])
 
   // Prepara e abre os inputs de edição diretamente na vaga do usuário clicado
@@ -226,13 +233,25 @@ function ListarUsuarios({ isAdmin }) {
     // Lembrete: Adicione este novo input de arquivo no seu estado (no topo do componente):
   // const [fotoArquivo, setFotoArquivo] = useState(null)
 
+  const comprasDoCliente = (user) => {
+    const nomeCliente = String(user.nome || '').trim().toLowerCase()
+    return vendas.filter((venda) => {
+      const clienteId = venda.cliente ? String(venda.cliente) : ''
+      const nomeVenda = String(venda.nomeCliente || '').trim().toLowerCase()
+      return clienteId === String(user._id) || nomeVenda === nomeCliente
+    })
+  }
+
   return (
     <div className='cadastro-usuario' style={estilos.pagina}>
       <h1 style={estilos.titulo}>📋 Lista de Usuários</h1>
       {mensagem && <p role='status' style={{ textAlign: 'center', marginBottom: 20, color: '#334155' }}>{mensagem}</p>}
 
       <div className='user-list' style={estilos.gridCards}>
-        {users.map((user) => (
+        {users.map((user) => {
+          const historico = comprasDoCliente(user)
+
+          return (
           <div key={user._id} className='user-card-container' style={estilos.cardContainer}>
             
             {/* Condicional: se o ID deste usuário for igual ao idEdicao, exibe os inputs */}
@@ -298,6 +317,42 @@ function ListarUsuarios({ isAdmin }) {
                   <p style={{ fontSize: '14px', margin: '8px 0', color: user.acesso === 'aprovado' ? '#15803d' : user.acesso === 'bloqueado' ? '#b91c1c' : '#b45309' }}>
                     <strong>Acesso:</strong> {user.acesso || 'pendente'}
                   </p>
+
+                  <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>🧾 Histórico de compras</p>
+                    {historico.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Nenhuma compra registrada.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gap: '8px' }}>
+                        {historico.map((venda, index) => (
+                          <div key={`${user._id}-${venda._id || index}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '12px', color: '#0f172a' }}>
+                                {new Date(venda.dataVenda || venda.createdAt).toLocaleDateString('pt-BR')}
+                              </strong>
+                              <span style={{ fontSize: '12px', color: '#15803d', fontWeight: '700' }}>
+                                R$ {(Number(venda.total) || 0).toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
+                              {Array.isArray(venda.itens) && venda.itens.length > 0 ? (
+                                venda.itens.map((item, itemIndex) => {
+                                  const nomeProduto = item.produto?.nomeProduto || item.produto?.nome || `Produto ${itemIndex + 1}`
+                                  return (
+                                    <div key={`${venda._id || index}-${itemIndex}`}>
+                                      • {nomeProduto} x{Number(item.quantidade) || 0}
+                                    </div>
+                                  )
+                                })
+                              ) : (
+                                <div>• Pedido sem itens</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className='user-actions' style={estilos.areaBotoes}>
@@ -324,7 +379,8 @@ function ListarUsuarios({ isAdmin }) {
             )}
 
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

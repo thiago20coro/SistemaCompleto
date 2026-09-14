@@ -14,6 +14,9 @@ function Login({ onLogin }) {
     setMensagem('')
     try {
       const resposta = await axios.post(`${API_URL}/auth/login`, { email, senha })
+      if (resposta.data.token) {
+        localStorage.setItem('admin-token', resposta.data.token)
+      }
       onLogin(resposta.data.usuario, resposta.data.token)
     } catch (error) {
       setMensagem(error.response?.data?.mensagem || 'Não foi possível fazer login.')

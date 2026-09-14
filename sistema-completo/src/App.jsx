@@ -12,38 +12,52 @@ import CadastroAdministrador from './components/CadastroAdministrador.jsx'
 import DashboardERP from './components/DashboardERP.jsx'
 import PainelVendas from './components/PainelVendas.jsx'
 import RelatorioVendas from './components/RelatorioVendas.jsx'
+import ClienteHistorico from './components/ClienteHistorico.jsx'
 import minhaFoto from './assets/Amor e Eu 1.jpg'
 import { API_URL } from './config/api.js'
 
 const TOKEN_KEY = 'admin-token'
+
+function aplicarToken(token) {
+  if (token) {
+    axios.defaults.headers.common.Authorization = `Bearer ${token}`
+    localStorage.setItem(TOKEN_KEY, token)
+    return
+  }
+
+  delete axios.defaults.headers.common.Authorization
+  localStorage.removeItem(TOKEN_KEY)
+}
 
 function App() {
   const [telaAtiva, setTelaAtiva] = useState("home")
   const [usuarioAutenticado, setUsuarioAutenticado] = useState(null)
   const [verificandoSessao, setVerificandoSessao] = useState(true)
 
-  function aplicarToken(token) {
-    if (token) {
-      axios.defaults.headers.common.Authorization = `Bearer ${token}`
-      localStorage.setItem(TOKEN_KEY, token)
-      return
-    }
-
-    delete axios.defaults.headers.common.Authorization
-    localStorage.removeItem(TOKEN_KEY)
-  }
-
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
+    if (token) {
+      aplicarToken(token)
+    }
+
+    axios.interceptors.request.use((config) => {
+      const atual = localStorage.getItem(TOKEN_KEY)
+      if (atual) {
+        config.headers = {
+          ...config.headers,
+          Authorization: `Bearer ${atual}`
+        }
+      }
+      return config
+    })
+
     if (!token) {
       setUsuarioAutenticado(null)
       setVerificandoSessao(false)
       return
     }
 
-    axios.get(`${API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    axios.get(`${API_URL}/auth/me`)
       .then(resposta => setUsuarioAutenticado(resposta.data))
       .catch(() => {
         setUsuarioAutenticado(null)
@@ -104,6 +118,7 @@ function App() {
 
           <p style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', margin: '16px 0 8px 8px', letterSpacing: '0.5px' }}>Consultas</p>
           <button style={estiloBotao("clientes")} onClick={() => setTelaAtiva("clientes")}>👥 Usuários Cadastrados</button>
+          <button style={estiloBotao("cliente-historico")} onClick={() => setTelaAtiva("cliente-historico")}>🧾 Histórico de Clientes</button>
           <button style={estiloBotao("produtos")} onClick={() => setTelaAtiva("produtos")}>📦 Produtos Cadastrados</button>
           <button style={estiloBotao("listarfornecedores")} onClick={() => setTelaAtiva("listarfornecedores")}>📋 Listar Fornecedores</button>
           <button style={estiloBotao("relatorio-vendas")} onClick={() => setTelaAtiva("relatorio-vendas")}>📊 Itens Vendidos</button>
@@ -126,6 +141,7 @@ function App() {
           {telaAtiva === "usuario" && <CadastroUsuario />}
           {telaAtiva === "produto" && <FormProduto />}
           {telaAtiva === "clientes" && <ListarUsuarios isAdmin={usuarioAutenticado.perfil === 'admin'} />}
+          {telaAtiva === "cliente-historico" && <ClienteHistorico />}
           {telaAtiva === "produtos" && <ListarProdutos />}
           {telaAtiva === "fornecedores" && <CadastroFornecedor />}
           {telaAtiva === "vendas" && <PainelVendas />}
