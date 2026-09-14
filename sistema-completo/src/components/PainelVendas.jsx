@@ -196,7 +196,7 @@ function PainelVendas() {
               padding: '16px',
               marginBottom: '16px'
             }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className='cliente-cadastro-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <label>
                   CPF
                   <input value={cpfCliente} onChange={event => setCpfCliente(event.target.value)} placeholder='CPF do cliente' required />
@@ -207,7 +207,7 @@ function PainelVendas() {
                 </label>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+              <div className='cliente-cadastro-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
                 <label>
                   Idade
                   <input type='number' min='18' value={idadeCliente} onChange={event => setIdadeCliente(event.target.value)} placeholder='Idade' required />

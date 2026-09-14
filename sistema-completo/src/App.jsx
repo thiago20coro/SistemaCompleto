@@ -95,8 +95,8 @@ function App() {
   })
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Arial, sans-serif', backgroundColor: '#f8f9fa' }}>
-      <aside style={{ width: '260px', background: '#242f40', color: '#fff', padding: '24px 16px', boxShadow: '2px 0 5px rgba(0,0,0,0.1)' }}>
+    <div className='app-shell' style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Arial, sans-serif', backgroundColor: '#f8f9fa' }}>
+      <aside className='app-sidebar' style={{ width: '260px', background: '#242f40', color: '#fff', padding: '24px 16px', boxShadow: '2px 0 5px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px', borderBottom: '1px solid #34445c', paddingBottom: '16px' }}>
           <h2 style={{ margin: 0, fontSize: '20px', color: '#cca43b', letterSpacing: '1px' }}>🧵 Ateliê & Bordados</h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#a0aec0' }}>Painel de Controle</p>
@@ -134,7 +134,7 @@ function App() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+      <main className='app-main' style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
         {telaAtiva === "home" && <DashboardERP onNavigate={setTelaAtiva} />}
 
         <div style={{ marginTop: '10px' }}>

@@ -145,7 +145,7 @@ export default function FormProduto() {
                 </label>
 
                 {/* Grid para organizar Tamanho e Cores lado a lado */}
-                <div style={estilos.gridDuplo}>
+                <div className='form-grid-duplo' style={estilos.gridDuplo}>
                     <label style={estilos.grupoInput}> Tamanho
                         <input type="text" value={tamanho} onChange={(e) => setTamanho(e.target.value)} placeholder='Ex. P, M, G' style={estilos.input} />
                     </label>
@@ -160,7 +160,7 @@ export default function FormProduto() {
                 </label>
 
                 {/* Grid para organizar Preço e Estoque lado a lado */}
-                <div style={estilos.gridDuplo}>
+                <div className='form-grid-duplo' style={estilos.gridDuplo}>
                     <label style={estilos.grupoInput}> Preço (R$) *
                         <input type="number" step="0.01" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder='0,00' style={estilos.input} />
                     </label>

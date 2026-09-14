@@ -167,7 +167,7 @@ function CadastroUsuario() {
 
   return (
     <div className='cadastro-usuario' style={estilos.containerPagina}>
-      <div style={estilos.cardForm}>
+      <div className='cadastro-usuario-card' style={estilos.cardForm}>
         <h1 style={estilos.titulo}>👤 Cadastro de Usuário</h1>
         <p style={estilos.subtitulo}>Preencha as informações para registrar um novo perfil</p>
         
@@ -178,7 +178,7 @@ function CadastroUsuario() {
           </p>
         )}
 
-        <form onSubmit={handleSubmit} style={estilos.formularioGrid}>
+        <form className='cadastro-usuario-form' onSubmit={handleSubmit} style={estilos.formularioGrid}>
           
           <div style={estilos.campoInteiro}>
             <input 

@@ -260,7 +260,7 @@ function ListarFornecedores() {
     <div style={estilos.pagina}>
       <h1 style={estilos.titulo}>📋 Lista de Fornecedores</h1>
 
-      <div style={estilos.gridCards}>
+      <div className='fornecedor-grid-cards' style={estilos.gridCards}>
         {fornecedores.map((fornecedor) => (
           <div key={fornecedor._id} style={estilos.cardContainer}>
             

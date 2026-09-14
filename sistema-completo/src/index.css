@@ -11,3 +11,83 @@ body {
   color: #333;
   background: linear-gradient(135deg, #667eea, #764ba2);
 }
+
+button,
+input,
+select {
+  max-width: 100%;
+}
+
+@media (max-width: 700px) {
+  .app-shell { display: block !important; }
+  .app-sidebar {
+    width: 100% !important;
+    padding: 16px 12px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .14) !important;
+  }
+  .app-sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .app-sidebar nav p {
+    grid-column: 1 / -1;
+    margin-top: 10px !important;
+  }
+  .app-sidebar nav button {
+    margin: 0 !important;
+    min-height: 44px;
+    padding: 10px !important;
+    font-size: 13px !important;
+  }
+  .app-main {
+    min-width: 0;
+    padding: 24px 14px !important;
+    overflow-x: hidden !important;
+  }
+  .app-sidebar > div:last-child { display: none; }
+  .cadastro-usuario { padding: 20px 0 !important; }
+  .cadastro-usuario-card {
+    padding: 24px 16px !important;
+    border-radius: 12px !important;
+  }
+  .cadastro-usuario-form {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .cadastro-usuario-form > div,
+  .cadastro-usuario-form > input { grid-column: auto !important; }
+  .form-grid-duplo,
+  .cliente-cadastro-grid { grid-template-columns: 1fr !important; }
+  .fornecedor-grid-cards,
+  .user-list { grid-template-columns: 1fr !important; }
+  .container-form {
+    width: 100% !important;
+    margin: 20px auto !important;
+    padding: 24px 16px !important;
+    border-radius: 12px !important;
+  }
+  .painel-vendas,
+  .relatorio-vendas,
+  .dashboard-erp { width: 100%; }
+  .vendas-formulario,
+  .vendas-historico { padding: 16px; }
+  .vendas-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .vendas-item button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    padding-left: 0;
+  }
+  .relatorio-abas { overflow-x: auto; white-space: nowrap; }
+}
+
+@media (max-width: 420px) {
+  .app-sidebar nav { grid-template-columns: 1fr; }
+  .app-main { padding: 18px 10px !important; }
+  .painel-vendas-cabecalho h1,
+  .relatorio-vendas-cabecalho h1 { font-size: 26px; }
+  .dashboard-cabecalho h1 { font-size: 30px; }
+}
