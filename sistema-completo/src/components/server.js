@@ -72,7 +72,7 @@ app.use(cors({
 const usuarioSchema = new mongoose.Schema({
     nome: { type: String, required: true},
     email: {type: String, required: true, unique: true},
-    idade: {type: Number, required: true},
+    idade: {type: Number, required: false},
     endereco: {type: String, required: true},
     cep: {type: String, required: true},
     celular: {type: String, required: true},
@@ -500,20 +500,21 @@ app.post('/usuarios', async (request,response)=>{
     }
 
     const idade = Number(dadosUsuario.idade)
-    const idadeMinima = cadastroCliente ? 13 : 18
-    if (!Number.isInteger(idade) || idade < idadeMinima) {
-        return response.status(400).json({ mensagem: `O ${cadastroCliente ? 'cliente' : 'usuário'} deve ter pelo menos ${idadeMinima} anos.` })
+    if (!cadastroCliente && (!Number.isInteger(idade) || idade < 18)) {
+        return response.status(400).json({ mensagem: 'O usuário deve ter pelo menos 18 anos.' })
     }
 
     const totalUsuarios = await Usuario.countDocuments()
-    const usuarioCriado = await Usuario.create({
+    const dadosParaCriar = {
         ...dadosUsuario,
-        idade,
         email: String(dadosUsuario.email || '').trim().toLowerCase(),
         passwordHash: await criarHashSenha(senha),
         perfil: !cadastroCliente && totalUsuarios === 0 ? 'admin' : 'usuario',
         acesso: cadastroCliente || totalUsuarios === 0 ? 'aprovado' : 'pendente'
-    })
+    }
+    if (!cadastroCliente) dadosParaCriar.idade = idade
+
+    const usuarioCriado = await Usuario.create(dadosParaCriar)
 
     // push é um metodo de array que adiciona o item ao array
 

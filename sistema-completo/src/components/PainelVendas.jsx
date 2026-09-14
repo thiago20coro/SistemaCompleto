@@ -13,23 +13,37 @@ function PainelVendas() {
   const [enderecoCliente, setEnderecoCliente] = useState('')
   const [telefoneCliente, setTelefoneCliente] = useState('')
   const [emailCliente, setEmailCliente] = useState('')
-  const [idadeCliente, setIdadeCliente] = useState(13)
   const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false)
   const [carrinho, setCarrinho] = useState([])
   const [mensagem, setMensagem] = useState('')
   const [carregando, setCarregando] = useState(false)
 
   async function carregarDados() {
-    const [produtosResposta, vendasResposta] = await Promise.all([
+    const [produtosResultado, vendasResultado] = await Promise.allSettled([
       axios.get(`${API_URL}/produtos`),
       axios.get(`${API_URL}/vendas`)
     ])
-    setProdutos(Array.isArray(produtosResposta.data) ? produtosResposta.data : [])
-    setVendas(Array.isArray(vendasResposta.data) ? vendasResposta.data : [])
+
+    if (produtosResultado.status === 'fulfilled') {
+      const dados = produtosResultado.value.data
+      const listaProdutos = Array.isArray(dados) ? dados : dados?.produtos
+      setProdutos(Array.isArray(listaProdutos) ? listaProdutos : [])
+    } else {
+      setProdutos([])
+      setMensagem(produtosResultado.reason?.response?.data?.mensagem || 'Não foi possível carregar os produtos cadastrados.')
+    }
+
+    if (vendasResultado.status === 'fulfilled') {
+      const dados = vendasResultado.value.data
+      const listaVendas = Array.isArray(dados) ? dados : dados?.vendas
+      setVendas(Array.isArray(listaVendas) ? listaVendas : [])
+    } else if (produtosResultado.status === 'fulfilled') {
+      setMensagem('Produtos carregados. Não foi possível carregar o histórico de vendas.')
+    }
   }
 
   useEffect(() => {
-    carregarDados().catch(() => setMensagem('Não foi possível carregar produtos e vendas.'))
+    carregarDados()
   }, [])
 
   const produtoAtual = produtos.find(produto => produto._id === produtoSelecionado)
@@ -116,7 +130,6 @@ function PainelVendas() {
         const respostaCadastro = await axios.post(`${API_URL}/usuarios`, {
           nome: nomeClienteFinal,
           email: emailParaCadastro,
-          idade: Number(idadeCliente) || 18,
           endereco: enderecoCliente.trim(),
           cep: '00000-000',
           celular: telefoneCliente.trim(),
@@ -142,7 +155,6 @@ function PainelVendas() {
       setEnderecoCliente('')
       setTelefoneCliente('')
       setEmailCliente('')
-      setIdadeCliente(13)
       setMostrarCadastroCliente(false)
       setCarrinho([])
       await carregarDados()
@@ -214,10 +226,6 @@ function PainelVendas() {
               </div>
 
               <div className='cliente-cadastro-grid' style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-                <label>
-                  Idade
-                  <input type='number' min='13' value={idadeCliente} onChange={event => setIdadeCliente(event.target.value)} placeholder='Idade' required />
-                </label>
                 <label>
                   E-mail (opcional)
                   <input value={emailCliente} onChange={event => setEmailCliente(event.target.value)} type='email' placeholder='E-mail do cliente' />
