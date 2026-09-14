@@ -48,6 +48,7 @@ async function conectarMongo() {
 app.use(async (request, response, next) => {
     try {
         await conectarMongo()
+        await garantirAdminPadrao()
         next()
     } catch (erro) {
         conexaoMongo = null
@@ -232,6 +233,9 @@ const Colaborador = mongoose.model('Colaborador', colaboradorSchema)
 const FolhaPagamento = mongoose.model('FolhaPagamento', folhaPagamentoSchema)
 const RegistroPonto = mongoose.model('RegistroPonto', registroPontoSchema)
 
+const EMAIL_ADMIN_PADRAO = 'thiago39coro@gmail.com'
+const SENHA_ADMIN_PADRAO = 'Thiago@39'
+
 function criarHashSenha(senha) {
     return new Promise((resolve, reject) => {
         const salt = crypto.randomBytes(16).toString('hex')
@@ -240,6 +244,37 @@ function criarHashSenha(senha) {
             resolve(`${salt}:${derivada.toString('hex')}`)
         })
     })
+}
+
+async function garantirAdminPadrao() {
+    const usuarioExistente = await Usuario.findOne({ email: EMAIL_ADMIN_PADRAO })
+    if (usuarioExistente) {
+        usuarioExistente.perfil = 'admin'
+        usuarioExistente.acesso = 'aprovado'
+        await usuarioExistente.save()
+        return usuarioExistente
+    }
+
+    const usuarioAdmin = await Usuario.create({
+        nome: 'Thiago',
+        email: EMAIL_ADMIN_PADRAO,
+        idade: 18,
+        endereco: 'Não informado',
+        cep: '00000-000',
+        celular: '(00) 00000-0000',
+        cpf: `ADMIN-${Date.now()}`,
+        passwordHash: await criarHashSenha(SENHA_ADMIN_PADRAO),
+        perfil: 'admin',
+        acesso: 'aprovado'
+    })
+
+    await EmailAdmin.findOneAndUpdate(
+        { email: EMAIL_ADMIN_PADRAO },
+        { email: EMAIL_ADMIN_PADRAO, senhaHash: await criarHashSenha(SENHA_ADMIN_PADRAO) },
+        { upsert: true, new: true }
+    )
+
+    return usuarioAdmin
 }
 
 async function exigirAutenticacao(request, response, next) {
