@@ -236,10 +236,35 @@ const RegistroPonto = mongoose.model('RegistroPonto', registroPontoSchema)
 
 const EMAIL_ADMIN_PADRAO = 'thiago39coro@gmail.com'
 const SENHA_ADMIN_PADRAO = 'Thiago@39'
-const sessoesAtivas = new Map()
+const SEGREDO_AUTENTICACAO = process.env.AUTH_SECRET || `${EMAIL_ADMIN_PADRAO}:${SENHA_ADMIN_PADRAO}`
 
-function gerarToken() {
-    return crypto.randomBytes(32).toString('hex')
+function gerarToken(email) {
+    const payload = Buffer.from(JSON.stringify({
+        email,
+        exp: Date.now() + 12 * 60 * 60 * 1000
+    })).toString('base64url')
+    const assinatura = crypto.createHmac('sha256', SEGREDO_AUTENTICACAO).update(payload).digest('base64url')
+    return `${payload}.${assinatura}`
+}
+
+function lerToken(token) {
+    try {
+        const [payload, assinatura] = String(token || '').split('.')
+        if (!payload || !assinatura) return null
+
+        const assinaturaEsperada = crypto.createHmac('sha256', SEGREDO_AUTENTICACAO).update(payload).digest('base64url')
+        const assinaturaInformada = Buffer.from(assinatura)
+        const assinaturaReal = Buffer.from(assinaturaEsperada)
+        if (assinaturaInformada.length !== assinaturaReal.length || !crypto.timingSafeEqual(assinaturaInformada, assinaturaReal)) {
+            return null
+        }
+
+        const dados = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+        if (!dados.email || !Number.isFinite(dados.exp) || dados.exp <= Date.now()) return null
+        return dados
+    } catch {
+        return null
+    }
 }
 
 function obterTokenDaRequisicao(request) {
@@ -252,14 +277,13 @@ async function obterUsuarioAutenticado(request) {
     const token = obterTokenDaRequisicao(request)
     if (!token) return null
 
-    const sessao = sessoesAtivas.get(token)
+    const sessao = lerToken(token)
     if (!sessao) return null
 
     const administrador = await EmailAdmin.findOne({ email: sessao.email }).select('+senhaHash')
         || await Usuario.findOne({ email: sessao.email, perfil: 'admin' }).select('+passwordHash')
 
     if (!administrador) {
-        sessoesAtivas.delete(token)
         return null
     }
 
@@ -369,8 +393,7 @@ app.post('/auth/login', async (request, response) => {
             return response.status(401).json({ mensagem: 'E-mail ou senha inválidos.' })
         }
 
-        const token = gerarToken()
-        sessoesAtivas.set(token, { email: administrador.email, perfil: 'admin' })
+        const token = gerarToken(administrador.email)
 
         response.json({
             token,
