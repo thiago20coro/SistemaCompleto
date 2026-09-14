@@ -9,6 +9,12 @@ function PainelVendas() {
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [quantidade, setQuantidade] = useState(1)
   const [nomeCliente, setNomeCliente] = useState('')
+  const [cpfCliente, setCpfCliente] = useState('')
+  const [enderecoCliente, setEnderecoCliente] = useState('')
+  const [telefoneCliente, setTelefoneCliente] = useState('')
+  const [emailCliente, setEmailCliente] = useState('')
+  const [idadeCliente, setIdadeCliente] = useState(18)
+  const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false)
   const [carrinho, setCarrinho] = useState([])
   const [mensagem, setMensagem] = useState('')
   const [carregando, setCarregando] = useState(false)
@@ -75,13 +81,63 @@ function PainelVendas() {
     setCarregando(true)
     setMensagem('')
     try {
+      const clientesResposta = await axios.get(`${API_URL}/usuarios`)
+      const clientesCadastrados = Array.isArray(clientesResposta.data) ? clientesResposta.data : []
+      const cpfNormalizado = String(cpfCliente || '').replace(/\D/g, '')
+      const nomeNormalizado = nomeCliente.trim().toLowerCase()
+
+      let clienteEncontrado = clientesCadastrados.find(cliente => {
+        const cpfClienteCadastrado = String(cliente.cpf || '').replace(/\D/g, '')
+        const nomeClienteCadastrado = String(cliente.nome || '').trim().toLowerCase()
+        return (cpfNormalizado && cpfClienteCadastrado === cpfNormalizado) || nomeClienteCadastrado === nomeNormalizado
+      })
+
+      let clienteId = clienteEncontrado?._id || null
+      let nomeClienteFinal = nomeCliente.trim()
+
+      if (!clienteEncontrado) {
+        const camposObrigatorios = (!cpfCliente.trim() || !enderecoCliente.trim() || !telefoneCliente.trim())
+
+        if (camposObrigatorios) {
+          setMostrarCadastroCliente(true)
+          setMensagem('Cliente não encontrado. Complete os dados abaixo para cadastrar o cliente antes da venda.')
+          setCarregando(false)
+          return
+        }
+
+        const nomeParaEmail = nomeClienteFinal.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'cliente'
+        const emailParaCadastro = (emailCliente || `${nomeParaEmail}@cliente.local`).trim()
+
+        const respostaCadastro = await axios.post(`${API_URL}/usuarios`, {
+          nome: nomeClienteFinal,
+          email: emailParaCadastro,
+          idade: Number(idadeCliente) || 18,
+          endereco: enderecoCliente.trim(),
+          cep: '00000-000',
+          celular: telefoneCliente.trim(),
+          cpf: cpfCliente.trim(),
+          senha: 'Cliente@123'
+        })
+
+        clienteId = respostaCadastro.data?._id
+        nomeClienteFinal = respostaCadastro.data?.nome || nomeClienteFinal
+      }
+
       await axios.post(`${API_URL}/vendas`, {
-        nomeCliente: nomeCliente.trim(),
+        cliente: clienteId,
+        nomeCliente: nomeClienteFinal,
         itens: carrinho.map(item => ({ produto: item.produto, quantidade: item.quantidade })),
         status: 'faturado'
       })
-      setMensagem('Venda registrada. O estoque foi atualizado automaticamente.')
+
+      setMensagem('Venda registrada. O cliente foi validado e o estoque foi atualizado automaticamente.')
       setNomeCliente('')
+      setCpfCliente('')
+      setEnderecoCliente('')
+      setTelefoneCliente('')
+      setEmailCliente('')
+      setIdadeCliente(18)
+      setMostrarCadastroCliente(false)
       setCarrinho([])
       await carregarDados()
     } catch (error) {
@@ -110,9 +166,65 @@ function PainelVendas() {
       <div className='vendas-layout'>
         <form className='vendas-formulario' onSubmit={finalizarVenda}>
           <label>
-            Cliente
+            Nome do cliente
             <input value={nomeCliente} onChange={event => setNomeCliente(event.target.value)} placeholder='Nome do cliente' required />
           </label>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <button
+              type='button'
+              onClick={() => setMostrarCadastroCliente(!mostrarCadastroCliente)}
+              style={{
+                background: '#e2e8f0',
+                color: '#0f172a',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {mostrarCadastroCliente ? 'Ocultar cadastro' : 'Cadastrar cliente'}
+            </button>
+          </div>
+
+          {mostrarCadastroCliente && (
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <label>
+                  CPF
+                  <input value={cpfCliente} onChange={event => setCpfCliente(event.target.value)} placeholder='CPF do cliente' required />
+                </label>
+                <label>
+                  Telefone
+                  <input value={telefoneCliente} onChange={event => setTelefoneCliente(event.target.value)} placeholder='Telefone do cliente' required />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <label>
+                  Idade
+                  <input type='number' min='18' value={idadeCliente} onChange={event => setIdadeCliente(event.target.value)} placeholder='Idade' required />
+                </label>
+                <label>
+                  E-mail (opcional)
+                  <input value={emailCliente} onChange={event => setEmailCliente(event.target.value)} type='email' placeholder='E-mail do cliente' />
+                </label>
+              </div>
+
+              <label style={{ display: 'block', marginTop: '12px' }}>
+                Endereço
+                <input value={enderecoCliente} onChange={event => setEnderecoCliente(event.target.value)} placeholder='Endereço completo' required />
+              </label>
+            </div>
+          )}
+
           <div className='vendas-adicionar'>
             <label>
               Produto
