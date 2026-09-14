@@ -33,6 +33,11 @@ function PainelVendas() {
   }, [])
 
   const produtoAtual = produtos.find(produto => produto._id === produtoSelecionado)
+  const produtosOrdenados = [...produtos].sort((a, b) => {
+    const nomeA = String(a.nomeProduto || a.nome || '').toLowerCase()
+    const nomeB = String(b.nomeProduto || b.nome || '').toLowerCase()
+    return nomeA.localeCompare(nomeB)
+  })
   const totalCarrinho = useMemo(
     () => carrinho.reduce((total, item) => total + item.quantidade * item.valorUnitario, 0),
     [carrinho]
@@ -41,7 +46,7 @@ function PainelVendas() {
   function adicionarAoCarrinho(event) {
     event.preventDefault()
     const quantidadeInformada = Number(quantidade)
-    if (!produtoAtual || !Number.isInteger(quantidadeInformada) || quantidadeInformada <= 0) {
+    if (!produtoAtual || Number(produtoAtual.quantidadeEstoque) <= 0 || !Number.isInteger(quantidadeInformada) || quantidadeInformada <= 0) {
       setMensagem('Selecione um produto e informe uma quantidade válida.')
       return
     }
@@ -230,9 +235,11 @@ function PainelVendas() {
               Produto
               <select value={produtoSelecionado} onChange={event => setProdutoSelecionado(event.target.value)}>
                 <option value=''>Selecione um produto</option>
-                {produtos.filter(produto => produto.quantidadeEstoque > 0).map(produto => (
-                  <option key={produto._id} value={produto._id}>
-                    {(produto.nome || produto.nomeProduto)} - estoque: {produto.quantidadeEstoque}
+                {produtosOrdenados.length === 0 ? (
+                  <option value='' disabled>Nenhum produto cadastrado</option>
+                ) : produtosOrdenados.map(produto => (
+                  <option key={produto._id} value={produto._id} disabled={Number(produto.quantidadeEstoque) <= 0}>
+                    {produto.nomeProduto || produto.nome || 'Produto sem nome'} - estoque: {Number(produto.quantidadeEstoque) || 0}
                   </option>
                 ))}
               </select>
