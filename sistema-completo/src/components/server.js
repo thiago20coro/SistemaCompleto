@@ -246,6 +246,36 @@ function criarHashSenha(senha) {
     })
 }
 
+function compararHashSenha(senha, senhaHash) {
+    return new Promise((resolve, reject) => {
+        if (!senha || !senhaHash || typeof senhaHash !== 'string') {
+            return resolve(false)
+        }
+
+        const [salt, hash] = senhaHash.split(':')
+        if (!salt || !hash) {
+            return resolve(false)
+        }
+
+        crypto.scrypt(senha, salt, 64, (erro, derivada) => {
+            if (erro) return reject(erro)
+
+            const hashEsperado = derivada.toString('hex')
+            const hashInformado = Buffer.from(hash, 'hex')
+            const hashReal = Buffer.from(hashEsperado, 'hex')
+
+            try {
+                if (hashInformado.length !== hashReal.length) {
+                    return resolve(false)
+                }
+                resolve(crypto.timingSafeEqual(hashInformado, hashReal))
+            } catch {
+                resolve(false)
+            }
+        })
+    })
+}
+
 async function garantirAdminPadrao() {
     const usuarioExistente = await Usuario.findOne({ email: EMAIL_ADMIN_PADRAO })
     if (usuarioExistente) {
@@ -291,10 +321,23 @@ async function exigirAdministrador(request, response, next) {
 app.post('/auth/login', async (request, response) => {
     try {
         const email = String(request.body.email || '').trim().toLowerCase()
-        if (!email) return response.status(400).json({ mensagem: 'O e-mail do administrador é obrigatório.' })
+        const senha = String(request.body.senha || '')
 
-        const administrador = await EmailAdmin.findOne({ email }) || await Usuario.findOne({ email, perfil: 'admin' })
+        if (!email) return response.status(400).json({ mensagem: 'O e-mail do administrador é obrigatório.' })
+        if (!senha) return response.status(400).json({ mensagem: 'A senha do administrador é obrigatória.' })
+
+        const emailAdmin = await EmailAdmin.findOne({ email }).select('+senhaHash')
+        const usuarioAdmin = await Usuario.findOne({ email, perfil: 'admin' }).select('+passwordHash')
+        const administrador = emailAdmin || usuarioAdmin
+
         if (!administrador) return response.status(401).json({ mensagem: 'Administrador não encontrado.' })
+
+        const senhaHash = emailAdmin?.senhaHash || usuarioAdmin?.passwordHash
+        const senhaValida = await compararHashSenha(senha, senhaHash)
+
+        if (!senhaValida) {
+            return response.status(401).json({ mensagem: 'E-mail ou senha inválidos.' })
+        }
 
         response.json({
             usuario: {
