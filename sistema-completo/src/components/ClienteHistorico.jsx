@@ -54,7 +54,7 @@ function ClienteHistorico() {
 
     return clientes.filter((cliente) => {
       const texto = `${cliente.nome} ${cliente.email} ${cliente.celular || ''}`.toLowerCase()
-      return texto.includes(termo)
+      return `${texto} ${cliente.cpf || ''}`.toLowerCase().includes(termo)
     })
   }, [clientes, pesquisa])
 
@@ -101,69 +101,52 @@ function ClienteHistorico() {
         />
       </div>
 
-      <div style={{ display: 'grid', gap: '18px' }}>
+      <div className='cliente-tabela-wrap' style={{ background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)', overflowX: 'auto' }}>
         {clientesFiltrados.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+          <div style={{ padding: '24px', textAlign: 'center' }}>
             <p style={{ margin: 0, color: '#64748b' }}>Nenhum cliente encontrado.</p>
           </div>
         ) : (
-          clientesFiltrados.map((cliente) => (
-            <article key={cliente._id} style={{ background: '#fff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                <div>
-                  <h2 style={{ margin: '0 0 6px 0', fontSize: '22px', color: '#111827' }}>{cliente.nome}</h2>
-                  <p style={{ margin: '0 0 4px 0', color: '#475569' }}>{cliente.email}</p>
-                  <p style={{ margin: 0, color: '#475569' }}>{cliente.celular || 'Celular não informado'}</p>
-                </div>
-
-                <div style={{ textAlign: 'right', minWidth: '170px' }}>
-                  <div style={{ color: '#64748b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Total gasto</div>
-                  <strong style={{ display: 'block', fontSize: '26px', color: '#15803d', marginTop: '6px' }}>
-                    R$ {Number(cliente.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </strong>
-                  <small style={{ color: '#64748b' }}>{cliente.quantidadeCompras || 0} compras</small>
-                </div>
-              </div>
-
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#111827' }}>Histórico de compras</h3>
-
-                {cliente.historico.length === 0 ? (
-                  <p style={{ margin: 0, color: '#64748b' }}>Nenhuma compra registrada para este cliente.</p>
-                ) : (
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {cliente.historico.map((venda, index) => (
-                      <div key={`${cliente._id}-${venda._id || index}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                          <strong style={{ fontSize: '13px', color: '#0f172a' }}>
-                            {new Date(venda.dataVenda || venda.createdAt).toLocaleDateString('pt-BR')}
-                          </strong>
-                          <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700' }}>
-                            R$ {Number(venda.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+          <table className='cliente-tabela'>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>CPF</th>
+                <th>Contato</th>
+                <th>Compras</th>
+                <th>Total gasto</th>
+                <th>Histórico</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientesFiltrados.map((cliente) => (
+                <tr key={cliente._id}>
+                  <td data-label='Cliente'><strong>{cliente.nome}</strong><small>{cliente.email || 'E-mail não informado'}</small></td>
+                  <td data-label='CPF'>{cliente.cpf || 'Não informado'}</td>
+                  <td data-label='Contato'>{cliente.celular || 'Não informado'}</td>
+                  <td data-label='Compras'>{cliente.quantidadeCompras || 0}</td>
+                  <td data-label='Total gasto'><strong className='cliente-total'>R$ {Number(cliente.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                  <td data-label='Histórico'>
+                    <details>
+                      <summary>Ver compras</summary>
+                      {cliente.historico.length === 0 ? (
+                        <p>Nenhuma compra registrada.</p>
+                      ) : (
+                        <div className='cliente-historico-lista'>
+                          {cliente.historico.map((venda, index) => (
+                            <div key={`${cliente._id}-${venda._id || index}`}>
+                              <strong>{new Date(venda.dataVenda || venda.createdAt).toLocaleDateString('pt-BR')} · R$ {Number(venda.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                              <small>{Array.isArray(venda.itens) && venda.itens.length > 0 ? venda.itens.map((item, itemIndex) => `${item.produto?.nomeProduto || item.produto?.nome || `Produto ${itemIndex + 1}`} x${Number(item.quantidade) || 0}`).join(', ') : 'Pedido sem itens cadastrados'}</small>
+                            </div>
+                          ))}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>
-                          {Array.isArray(venda.itens) && venda.itens.length > 0 ? (
-                            venda.itens.map((item, itemIndex) => {
-                              const nomeProduto = item.produto?.nomeProduto || item.produto?.nome || `Produto ${itemIndex + 1}`
-                              const quantidade = Number(item.quantidade) || 0
-                              return (
-                                <div key={`${venda._id || index}-${itemIndex}`}>
-                                  • {nomeProduto} x{quantidade}
-                                </div>
-                              )
-                            })
-                          ) : (
-                            <div>• Pedido sem itens cadastrados</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </article>
-          ))
+                      )}
+                    </details>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </section>

@@ -91,3 +91,44 @@ select {
   .relatorio-vendas-cabecalho h1 { font-size: 26px; }
   .dashboard-cabecalho h1 { font-size: 30px; }
 }
+
+.cliente-tabela {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.cliente-tabela th,
+.cliente-tabela td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.cliente-tabela th {
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.cliente-tabela td {
+  color: #475569;
+  font-size: 14px;
+}
+
+.cliente-tabela td small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.cliente-total { color: #15803d; white-space: nowrap; }
+.cliente-tabela summary { color: #166534; cursor: pointer; font-weight: 700; white-space: nowrap; }
+.cliente-historico-lista { display: grid; gap: 8px; min-width: 260px; margin-top: 10px; }
+.cliente-historico-lista div { padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.cliente-historico-lista strong,
+.cliente-historico-lista small { display: block; }
