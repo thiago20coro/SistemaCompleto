@@ -78,6 +78,7 @@ const usuarioSchema = new mongoose.Schema({
     celular: {type: String, required: true},
     cpf: {type: String, required: true, unique: true},
     passwordHash: { type: String, required: true, select: false },
+    tipoCadastro: { type: String, enum: ['usuario', 'cliente'], default: 'usuario' },
     perfil: { type: String, enum: ['admin', 'usuario'], default: 'usuario' },
     acesso: { type: String, enum: ['pendente', 'aprovado', 'bloqueado'], default: 'pendente' }
     
@@ -509,6 +510,7 @@ app.post('/usuarios', async (request,response)=>{
         ...dadosUsuario,
         email: String(dadosUsuario.email || '').trim().toLowerCase(),
         passwordHash: await criarHashSenha(senha),
+        tipoCadastro: cadastroCliente ? 'cliente' : 'usuario',
         perfil: !cadastroCliente && totalUsuarios === 0 ? 'admin' : 'usuario',
         acesso: cadastroCliente || totalUsuarios === 0 ? 'aprovado' : 'pendente'
     }

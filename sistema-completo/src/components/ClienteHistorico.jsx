@@ -18,7 +18,10 @@ function ClienteHistorico() {
         const vendas = Array.isArray(vendasResposta.data) ? vendasResposta.data : []
 
         const clientesComHistorico = usuarios
-          .filter((usuario) => usuario && usuario.nome)
+          .filter((usuario) => {
+            const email = String(usuario?.email || '').toLowerCase()
+            return usuario && usuario.nome && (usuario.tipoCadastro === 'cliente' || email.endsWith('@cliente.local'))
+          })
           .map((usuario) => {
             const nomeUsuario = String(usuario.nome || '').trim().toLowerCase()
             const historico = vendas.filter((venda) => {
