@@ -77,10 +77,17 @@ function ListarUsuarios({ isAdmin }) {
   async function handleUpdate(event) {
     event.preventDefault() // Evita o recarregamento da página
 
+    const idade = Number(age)
+
+    if (!Number.isInteger(idade) || idade < 18) {
+      setMensagem('O usuário deve ter pelo menos 18 anos.')
+      return
+    }
+
     const dadosUsuario = {
       nome: name,
       email: email,
-      idade: age,
+      idade,
       endereco: endereco,
       cep: cep,
       celular: celular,
@@ -238,7 +245,7 @@ function ListarUsuarios({ isAdmin }) {
                 
                 <div style={estilos.gridMistoForm}>
                   <input placeholder='Endereço' type='text' value={endereco} onChange={event => setEndereco(event.target.value)} style={estilos.inputEdicao} />
-                  <input placeholder='Idade' type='number' value={age} onChange={event => setAge(event.target.value)} style={estilos.inputEdicao} />
+                  <input placeholder='Idade' type='number' min='18' value={age} onChange={event => setAge(event.target.value)} style={estilos.inputEdicao} />
                 </div>
                 
                 <div style={estilos.gridDuploForm}>

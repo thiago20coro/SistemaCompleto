@@ -386,9 +386,16 @@ app.post('/usuarios', async (request,response)=>{
     if (!senha || senha.length < 6) {
         return response.status(400).json({ mensagem: 'A senha deve ter pelo menos 6 caracteres.' })
     }
+
+    const idade = Number(dadosUsuario.idade)
+    if (!Number.isInteger(idade) || idade < 18) {
+        return response.status(400).json({ mensagem: 'O usuário deve ter pelo menos 18 anos.' })
+    }
+
     const totalUsuarios = await Usuario.countDocuments()
     const usuarioCriado = await Usuario.create({
         ...dadosUsuario,
+        idade,
         email: String(dadosUsuario.email || '').trim().toLowerCase(),
         passwordHash: await criarHashSenha(senha),
         perfil: totalUsuarios === 0 ? 'admin' : 'usuario',
@@ -484,6 +491,14 @@ app.put('/usuarios/:_id', async (request, response) => {
     try {
         const idUsuario = request.params._id // Pega o ID vindo da URL
         const dadosAtualizados = request.body // Pega os novos dados (nome, email, etc.) enviados pelo formulário
+
+        if (dadosAtualizados.idade !== undefined) {
+            const idade = Number(dadosAtualizados.idade)
+            if (!Number.isInteger(idade) || idade < 18) {
+                return response.status(400).json({ mensagem: 'O usuário deve ter pelo menos 18 anos.' })
+            }
+            dadosAtualizados.idade = idade
+        }
 
         // Busca no MongoDB, atualiza e nos retorna o usuário já atualizado
         // O { new: true } serve para o Mongoose retornar o usuário DEPOIS da alteração

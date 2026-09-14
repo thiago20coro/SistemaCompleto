@@ -34,10 +34,17 @@ function CadastroUsuario() {
   async function handleSubmit(event) {
     event.preventDefault()
 
+    const idade = Number(age)
+
+    if (!Number.isInteger(idade) || idade < 18) {
+      setMensagem('O usuário deve ter pelo menos 18 anos.')
+      return
+    }
+
     const dadosUsuario = {
       nome: name,
       email: email,
-      idade: age,
+      idade,
       endereco: endereco,
       cep: cep,
       celular: celular,
@@ -215,6 +222,7 @@ function CadastroUsuario() {
           <input 
             placeholder='Idade' 
             type='number' 
+            min='18'
             value={age} 
             onChange={event => setAge(event.target.value)} 
             required
