@@ -480,9 +480,32 @@ app.put('/produtos/:_id', async (request, response) => {
 
 // essa rota retorna usuarios
 app.get('/usuarios', async (request, response) => {
-    
-    // respondendo ao front end com os usuarios
-   const usuariosDoBanco = await Usuario.find()
+    const filtro = {}
+    if (request.query.tipoCadastro === 'cliente') {
+        filtro.$or = [
+            { tipoCadastro: 'cliente' },
+            { email: { $regex: '@cliente\\.local$', $options: 'i' } }
+        ]
+    } else if (request.query.tipoCadastro) {
+        filtro.tipoCadastro = request.query.tipoCadastro
+    }
+    if (request.query.busca) {
+        const busca = String(request.query.busca).trim()
+        const buscaOr = [
+            { nome: { $regex: busca, $options: 'i' } },
+            { cpf: { $regex: busca, $options: 'i' } },
+            { email: { $regex: busca, $options: 'i' } },
+            { celular: { $regex: busca, $options: 'i' } }
+        ]
+        if (filtro.$or) {
+            filtro.$and = [{ $or: filtro.$or }, { $or: buscaOr }]
+            delete filtro.$or
+        } else {
+            filtro.$or = buscaOr
+        }
+    }
+
+   const usuariosDoBanco = await Usuario.find(filtro).sort({ nome: 1 })
    
     response.json(usuariosDoBanco)
 

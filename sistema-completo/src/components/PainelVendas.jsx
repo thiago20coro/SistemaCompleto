@@ -9,6 +9,8 @@ function PainelVendas() {
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [quantidade, setQuantidade] = useState(1)
   const [nomeCliente, setNomeCliente] = useState('')
+  const [clientesSugestoes, setClientesSugestoes] = useState([])
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [cpfCliente, setCpfCliente] = useState('')
   const [enderecoCliente, setEnderecoCliente] = useState('')
   const [telefoneCliente, setTelefoneCliente] = useState('')
@@ -45,6 +47,37 @@ function PainelVendas() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  useEffect(() => {
+    const termo = nomeCliente.trim()
+    if (termo.length < 2) {
+      setClientesSugestoes([])
+      return undefined
+    }
+
+    let ativo = true
+    const temporizador = setTimeout(async () => {
+      setBuscandoClientes(true)
+      try {
+        const resposta = await axios.get(`${API_URL}/usuarios`, {
+          params: { tipoCadastro: 'cliente', busca: termo }
+        })
+        if (ativo) {
+          const clientes = Array.isArray(resposta.data) ? resposta.data : []
+          setClientesSugestoes(clientes.slice(0, 8))
+        }
+      } catch {
+        if (ativo) setClientesSugestoes([])
+      } finally {
+        if (ativo) setBuscandoClientes(false)
+      }
+    }, 250)
+
+    return () => {
+      ativo = false
+      clearTimeout(temporizador)
+    }
+  }, [nomeCliente])
 
   const produtoAtual = produtos.find(produto => produto._id === produtoSelecionado)
   const produtosOrdenados = [...produtos].sort((a, b) => {
@@ -90,6 +123,16 @@ function PainelVendas() {
     setCarrinho(itens => itens.filter(item => item.produto !== idProduto))
   }
 
+  function selecionarCliente(cliente) {
+    setNomeCliente(cliente.nome || '')
+    setCpfCliente(cliente.cpf || '')
+    setEnderecoCliente(cliente.endereco || '')
+    setTelefoneCliente(cliente.celular || '')
+    setEmailCliente(cliente.email?.endsWith('@cliente.local') ? '' : (cliente.email || ''))
+    setClientesSugestoes([])
+    setMostrarCadastroCliente(false)
+  }
+
   async function finalizarVenda(event) {
     event.preventDefault()
     if (!nomeCliente.trim() || carrinho.length === 0) {
@@ -101,7 +144,8 @@ function PainelVendas() {
     setMensagem('')
     try {
       const clientesResposta = await axios.get(`${API_URL}/usuarios`)
-      const clientesCadastrados = Array.isArray(clientesResposta.data) ? clientesResposta.data : []
+      const clientesCadastrados = (Array.isArray(clientesResposta.data) ? clientesResposta.data : [])
+        .filter(cliente => cliente.tipoCadastro === 'cliente' || String(cliente.email || '').toLowerCase().endsWith('@cliente.local'))
       const cpfNormalizado = String(cpfCliente || '').replace(/\D/g, '')
       const nomeNormalizado = nomeCliente.trim().toLowerCase()
 
@@ -185,7 +229,29 @@ function PainelVendas() {
         <form className='vendas-formulario' onSubmit={finalizarVenda}>
           <label>
             Nome do cliente
-            <input value={nomeCliente} onChange={event => setNomeCliente(event.target.value)} placeholder='Nome do cliente' required />
+            <div className='cliente-busca'>
+              <input
+                value={nomeCliente}
+                onChange={event => {
+                  setNomeCliente(event.target.value)
+                  setMostrarCadastroCliente(false)
+                }}
+                placeholder='Digite o nome ou CPF do cliente'
+                autoComplete='off'
+                required
+              />
+              {(buscandoClientes || clientesSugestoes.length > 0) && (
+                <div className='cliente-sugestoes'>
+                  {buscandoClientes && <span className='cliente-sugestao-vazia'>Buscando clientes...</span>}
+                  {!buscandoClientes && clientesSugestoes.map(cliente => (
+                    <button key={cliente._id} type='button' className='cliente-sugestao' onClick={() => selecionarCliente(cliente)}>
+                      <strong>{cliente.nome}</strong>
+                      <small>{cliente.cpf || cliente.celular || 'Cliente cadastrado'}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </label>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>

@@ -132,3 +132,32 @@ select {
 .cliente-historico-lista div { padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
 .cliente-historico-lista strong,
 .cliente-historico-lista small { display: block; }
+
+.cliente-busca { position: relative; }
+.cliente-sugestoes {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+}
+.cliente-sugestao,
+.cliente-sugestao-vazia {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  text-align: left;
+}
+.cliente-sugestao { cursor: pointer; }
+.cliente-sugestao:hover { background: #f0fdfa; }
+.cliente-sugestao strong,
+.cliente-sugestao small { display: block; }
+.cliente-sugestao small,
+.cliente-sugestao-vazia { margin-top: 3px; color: #64748b; font-size: 12px; }

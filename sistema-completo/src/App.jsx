@@ -108,12 +108,14 @@ function App() {
           <button style={estiloBotao("home")} onClick={() => setTelaAtiva("home")}>🏠 Página Inicial</button>
           <button style={{ ...estiloBotao("logout"), color: '#fca5a5', marginTop: 16 }} onClick={sair}>🚪 Sair</button>
 
-          <p style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', margin: '16px 0 8px 8px', letterSpacing: '0.5px' }}>Cadastros</p>
-          <button style={estiloBotao("usuario")} onClick={() => setTelaAtiva("usuario")}>👤 Cadastrar Usuário</button>
+          <p style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', margin: '16px 0 8px 8px', letterSpacing: '0.5px' }}>Clientes e operação</p>
           <button style={estiloBotao("cliente-cadastro")} onClick={() => setTelaAtiva("cliente-cadastro")}>👥 Cadastrar Cliente</button>
           <button style={estiloBotao("produto")} onClick={() => setTelaAtiva("produto")}>👗 Cadastrar Produto</button>
           <button style={estiloBotao("fornecedores")} onClick={() => setTelaAtiva("fornecedores")}>🚚 Cadastrar Fornecedor</button>
           <button style={estiloBotao("vendas")} onClick={() => setTelaAtiva("vendas")}>🧾 Registrar Venda</button>
+
+          <p style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', margin: '16px 0 8px 8px', letterSpacing: '0.5px' }}>Equipe e acesso</p>
+          <button style={estiloBotao("usuario")} onClick={() => setTelaAtiva("usuario")}>👤 Cadastrar Usuário</button>
           {usuarioAutenticado.perfil === 'admin' && (
             <button style={estiloBotao("administrador")} onClick={() => setTelaAtiva("administrador")}>🔐 Novo Administrador</button>
           )}
