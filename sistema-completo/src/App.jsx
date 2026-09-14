@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import Login from './components/Login.jsx'
 import CadastroUsuario from './components/CadastroUsuario.jsx'
+import CadastroCliente from './components/CadastroCliente.jsx'
 import FormProduto from './components/FormProduto.jsx'
 import ListarUsuarios from './components/ListarUsuarios.jsx'
 import ListarProdutos from './components/ListarProdutos.jsx'
@@ -109,6 +110,7 @@ function App() {
 
           <p style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', margin: '16px 0 8px 8px', letterSpacing: '0.5px' }}>Cadastros</p>
           <button style={estiloBotao("usuario")} onClick={() => setTelaAtiva("usuario")}>👤 Cadastrar Usuário</button>
+          <button style={estiloBotao("cliente-cadastro")} onClick={() => setTelaAtiva("cliente-cadastro")}>👥 Cadastrar Cliente</button>
           <button style={estiloBotao("produto")} onClick={() => setTelaAtiva("produto")}>👗 Cadastrar Produto</button>
           <button style={estiloBotao("fornecedores")} onClick={() => setTelaAtiva("fornecedores")}>🚚 Cadastrar Fornecedor</button>
           <button style={estiloBotao("vendas")} onClick={() => setTelaAtiva("vendas")}>🧾 Registrar Venda</button>
@@ -139,6 +141,7 @@ function App() {
 
         <div style={{ marginTop: '10px' }}>
           {telaAtiva === "usuario" && <CadastroUsuario />}
+          {telaAtiva === "cliente-cadastro" && <CadastroCliente />}
           {telaAtiva === "produto" && <FormProduto />}
           {telaAtiva === "clientes" && <ListarUsuarios isAdmin={usuarioAutenticado.perfil === 'admin'} />}
           {telaAtiva === "cliente-historico" && <ClienteHistorico />}
